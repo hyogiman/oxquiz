@@ -235,12 +235,12 @@
             <div class="text-center py-6">
                 <h1 class="text-3xl font-bold text-white mb-3" translate="no">OX Quiz</h1>
                 <div class="flex justify-center mb-2">
-                    <div id="score-badge" onclick="showStats()" 
+                    <div id="score-badge" onclick="showScore()" 
                          class="score-badge bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg text-white px-6 py-2 rounded-full font-bold text-lg border border-white border-opacity-30" translate="no">
-                        정답: <span id="score">0</span>
+                        📊
                     </div>
                 </div>
-                <p class="text-white text-opacity-70 text-sm font-medium" translate="no">O 또는 X를 선택하세요</p>
+                <p class="text-white text-opacity-70 text-sm font-medium" translate="no">📊를 눌러 점수 확인 | O 또는 X를 선택하세요</p>
             </div>
         </div>
 
@@ -286,33 +286,14 @@
         </div>
     </div>
 
-    <!-- 통계 모달 -->
-    <div id="stats-modal" class="stats-modal">
+    <!-- 점수 표시 모달 -->
+    <div id="score-modal" class="stats-modal">
         <div class="stats-content">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800 mb-2" translate="no">📊 퀴즈 통계</h2>
-                <p class="text-gray-600 text-sm" translate="no">현재까지의 결과를 확인해보세요</p>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="stats-item">
-                    <div class="text-3xl font-bold text-green-600" id="stats-correct">0</div>
-                    <div class="text-sm text-gray-600 font-medium" translate="no">정답</div>
-                </div>
-                <div class="stats-item">
-                    <div class="text-3xl font-bold text-red-500" id="stats-wrong">0</div>
-                    <div class="text-sm text-gray-600 font-medium" translate="no">오답</div>
-                </div>
-            </div>
-            
-            <div class="stats-item mb-4">
-                <div class="text-2xl font-bold text-blue-600" id="stats-total">0</div>
-                <div class="text-sm text-gray-600 font-medium" translate="no">총 문제 수</div>
-            </div>
-            
-            <div class="stats-item">
-                <div class="text-2xl font-bold text-purple-600" id="stats-accuracy">0%</div>
-                <div class="text-sm text-gray-600 font-medium" translate="no">정답률</div>
+            <div class="text-center">
+                <div class="text-6xl mb-4">🎯</div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2" translate="no">현재 정답</h2>
+                <div class="text-6xl font-bold text-green-600 mb-4" id="current-score">0</div>
+                <p class="text-gray-600" translate="no">문</p>
             </div>
         </div>
     </div>
@@ -322,7 +303,7 @@
         let correctCount = 0;
         let wrongCount = 0;
         let hasScored = false;
-        let statsTimeout = null;
+        let scoreTimeout = null;
 
         function selectAnswer(answer) {
             selectedAnswer = answer;
@@ -369,7 +350,6 @@
         function handleCorrect() {
             if (!hasScored && selectedAnswer) {
                 correctCount++;
-                document.getElementById('score').textContent = correctCount;
                 hasScored = true;
                 updateButtons();
                 
@@ -414,49 +394,43 @@
             if (confirm('정말 점수를 리셋하시겠습니까?\n현재 점수: ' + correctCount + '점 (총 ' + totalProblems + '문제)')) {
                 correctCount = 0;
                 wrongCount = 0;
-                document.getElementById('score').textContent = correctCount;
             }
         }
 
-        function showStats() {
-            const modal = document.getElementById('stats-modal');
-            const totalProblems = correctCount + wrongCount;
-            const accuracy = totalProblems > 0 ? Math.round((correctCount / totalProblems) * 100) : 0;
+        function showScore() {
+            const modal = document.getElementById('score-modal');
             
-            // 통계 데이터 업데이트
-            document.getElementById('stats-correct').textContent = correctCount;
-            document.getElementById('stats-wrong').textContent = wrongCount;
-            document.getElementById('stats-total').textContent = totalProblems;
-            document.getElementById('stats-accuracy').textContent = accuracy + '%';
+            // 현재 점수 업데이트
+            document.getElementById('current-score').textContent = correctCount;
             
             // 모달 표시
             modal.classList.add('show');
             
             // 기존 타이머가 있으면 클리어
-            if (statsTimeout) {
-                clearTimeout(statsTimeout);
+            if (scoreTimeout) {
+                clearTimeout(scoreTimeout);
             }
             
             // 2초 후 자동으로 숨기기
-            statsTimeout = setTimeout(() => {
-                hideStats();
+            scoreTimeout = setTimeout(() => {
+                hideScore();
             }, 2000);
         }
 
-        function hideStats() {
-            const modal = document.getElementById('stats-modal');
+        function hideScore() {
+            const modal = document.getElementById('score-modal');
             modal.classList.remove('show');
             
-            if (statsTimeout) {
-                clearTimeout(statsTimeout);
-                statsTimeout = null;
+            if (scoreTimeout) {
+                clearTimeout(scoreTimeout);
+                scoreTimeout = null;
             }
         }
 
         // 모달 외부 클릭 시 닫기
-        document.getElementById('stats-modal').addEventListener('click', function(e) {
+        document.getElementById('score-modal').addEventListener('click', function(e) {
             if (e.target === this) {
-                hideStats();
+                hideScore();
             }
         });
 
