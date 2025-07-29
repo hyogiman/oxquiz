@@ -231,7 +231,6 @@
 
         // 전역 변수
         let currentUser = null;
-        let gameState = null;
         let currentQuestion = null;
         let selectedAnswer = null;
         let hasAnswered = false;
@@ -299,24 +298,22 @@
 
         // 리스너 설정
         function setupListeners() {
-            // 게임 상태 리스너
-            const gameStateListener = onSnapshot(doc(db, 'system', 'gameState'), (doc) => {
-                if (doc.exists()) {
-                    gameState = doc.data();
-                    updateGameState();
-                }
-            });
-            unsubscribeListeners.push(gameStateListener);
-
-            // 현재 문제 리스너
+            console.log('리스너 설정 시작');
+            
+            // 현재 문제 리스너 (가장 중요)
             const questionListener = onSnapshot(doc(db, 'system', 'currentQuestion'), (doc) => {
+                console.log('문제 리스너 트리거:', doc.exists());
                 if (doc.exists()) {
                     currentQuestion = doc.data();
+                    console.log('현재 문제:', currentQuestion);
                     updateQuizDisplay();
                 } else {
                     currentQuestion = null;
-                    updateQuizDisplay();
+                    console.log('문제 없음');
+                    showWaitingState();
                 }
+            }, (error) => {
+                console.error('문제 리스너 오류:', error);
             });
             unsubscribeListeners.push(questionListener);
 
@@ -347,72 +344,57 @@
             unsubscribeListeners.push(rankingListener);
         }
 
-        // 게임 상태 업데이트
-        function updateGameState() {
-            if (!gameState) return;
-
+        // 대기 상태 표시
+        function showWaitingState() {
             const display = document.getElementById('quizDisplay');
             const status = document.getElementById('quizStatus');
-
-            switch (gameState.status) {
-                case 'waiting':
-                    display.innerHTML = '<div class="text-6xl mb-6 opacity-60">⏰</div><div class="text-xl font-semibold opacity-80" translate="no">게임 시작을 기다리고 있습니다...</div>';
-                    status.textContent = '게임 시작 대기 중...';
-                    resetButtons();
-                    break;
-                case 'ready':
-                    display.innerHTML = '<div class="text-6xl mb-6 opacity-60">🚀</div><div class="text-xl font-semibold opacity-80" translate="no">곧 문제가 시작됩니다!</div>';
-                    status.textContent = '문제 준비 중...';
-                    resetButtons();
-                    break;
-                case 'question':
-                    // 문제별 처리는 updateQuizDisplay에서
-                    break;
-                case 'result':
-                    showResult();
-                    break;
-            }
+            
+            display.innerHTML = '<div class="text-6xl mb-6 opacity-60">⏰</div><div class="text-xl font-semibold opacity-80" translate="no">게임 시작을 기다리고 있습니다...</div>';
+            status.textContent = '게임 시작 대기 중...';
+            resetButtons();
+            hasAnswered = false;
+            selectedAnswer = null;
         }
 
         // 퀴즈 화면 업데이트
         function updateQuizDisplay() {
-            if (!currentQuestion || !gameState) return;
+            if (!currentQuestion) {
+                showWaitingState();
+                return;
+            }
 
+            console.log('퀴즈 화면 업데이트:', currentQuestion.status);
+            
             const display = document.getElementById('quizDisplay');
             const status = document.getElementById('quizStatus');
-            const btnO = document.getElementById('btnO');
-            const btnX = document.getElementById('btnX');
 
-            if (gameState.status === 'question' && currentQuestion.status === 'active') {
-                if (!hasAnswered && !currentUser.isFrozen) {
-                    // 문제 표시
-                    const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2" translate="no">⭐ 보너스 문제 (2배 점수)</div>' : '';
-                    display.innerHTML = `
-                        <div class="text-2xl font-bold text-gray-800 mb-4" translate="no">문제 ${currentQuestion.number}</div>
-                        <div class="text-xl text-gray-600 mb-4" translate="no">${currentQuestion.title}</div>
-                        ${bonusText}
-                    `;
-                    status.textContent = 'O 또는 X를 선택하세요';
-                    
-                    // 버튼 활성화
-                    btnO.disabled = false;
-                    btnX.disabled = false;
-                    btnO.className = 'btn-o h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
-                    btnX.className = 'btn-x h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
-                } else if (hasAnswered) {
-                    // 답변 대기 상태
-                    const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
-                    display.innerHTML = `
-                        <div class="text-center w-full">
-                            <div class="ox-display ${color}">${selectedAnswer}</div>
-                            <div class="text-lg text-gray-500 mt-4 loading" translate="no">결과를 기다리는 중...</div>
-                        </div>
-                    `;
-                    status.textContent = '답변을 제출했습니다. 결과를 기다려주세요...';
-                    disableButtons();
-                }
+            if (currentQuestion.status === 'active' && !hasAnswered && !currentUser.isFrozen) {
+                // 문제 활성 상태 - 답변 가능
+                const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2" translate="no">⭐ 보너스 문제 (2배 점수)</div>' : '';
+                display.innerHTML = `
+                    <div class="text-2xl font-bold text-gray-800 mb-4" translate="no">문제 ${currentQuestion.number}</div>
+                    <div class="text-xl text-gray-600 mb-4" translate="no">${currentQuestion.title}</div>
+                    ${bonusText}
+                `;
+                status.textContent = 'O 또는 X를 선택하세요';
+                enableButtons();
+            } else if (currentQuestion.status === 'active' && hasAnswered) {
+                // 답변 완료 상태
+                const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
+                display.innerHTML = `
+                    <div class="text-center w-full">
+                        <div class="ox-display ${color}">${selectedAnswer}</div>
+                        <div class="text-lg text-gray-500 mt-4 loading" translate="no">결과를 기다리는 중...</div>
+                    </div>
+                `;
+                status.textContent = '답변을 제출했습니다. 결과를 기다려주세요...';
+                disableButtons();
             } else if (currentQuestion.status === 'ended') {
+                // 문제 종료 상태
                 showQuestionResult();
+            } else {
+                // 기타 상태
+                showWaitingState();
             }
         }
 
@@ -446,21 +428,24 @@
             }
             
             disableButtons();
+            
             // 다음 문제를 위해 상태 초기화
             setTimeout(() => {
                 hasAnswered = false;
                 selectedAnswer = null;
-            }, 3000);
+            }, 2000);
         }
 
         // 답변 선택
         window.selectAnswer = async function(answer) {
-            if (!currentQuestion || gameState.status !== 'question' || currentQuestion.status !== 'active' || hasAnswered || currentUser.isFrozen) {
+            if (!currentQuestion || currentQuestion.status !== 'active' || hasAnswered || currentUser.isFrozen) {
                 return;
             }
 
             selectedAnswer = answer;
             hasAnswered = true;
+
+            console.log('답변 선택:', answer);
 
             // UI 즉시 업데이트
             updateQuizDisplay();
@@ -476,10 +461,22 @@
                     questionNumber: currentQuestion.number,
                     timestamp: serverTimestamp()
                 });
+                console.log('답변 저장 완료');
             } catch (error) {
                 console.error('답변 저장 오류:', error);
             }
         };
+
+        // 버튼 활성화
+        function enableButtons() {
+            const btnO = document.getElementById('btnO');
+            const btnX = document.getElementById('btnX');
+            
+            btnO.disabled = false;
+            btnX.disabled = false;
+            btnO.className = 'btn-o h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
+            btnX.className = 'btn-x h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
+        }
 
         // 버튼 초기화
         function resetButtons() {
@@ -587,7 +584,6 @@
             
             // 변수 초기화
             currentUser = null;
-            gameState = null;
             currentQuestion = null;
             selectedAnswer = null;
             hasAnswered = false;
@@ -607,6 +603,13 @@
         window.addEventListener('beforeunload', () => {
             if (currentUser) {
                 navigator.sendBeacon('/api/offline', JSON.stringify({userId: currentUser.id}));
+            }
+        });
+
+        // Enter 키로 로그인
+        document.getElementById('employeeId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleLogin();
             }
         });
     </script>
