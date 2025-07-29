@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ko" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>OX 퀴즈 관리자</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .header-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(102, 126, 234, 0.5);
+        }
+        
+        .status-waiting { background: #fbbf24; }
+        .status-ready { background: #34d399; }
+        .status-question { background: #3b82f6; }
+        .status-result { background: #ef4444; }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-6">
+        <div class="card rounded-3xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2" translate="no">OX 퀴즈 관리자</h1>
+                <p class="text-red-600 text-sm" translate="no">관리자 전용 페이지입니다</p>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2" translate="no">관리자 비밀번호</label>
+                <input type="password" id="adminPassword" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="비밀번호를 입력하세요">
+            </div>
+            
+            <button onclick="adminLogin()" class="btn-primary w-full py-3 text-white rounded-xl font-semibold" translate="no">
+                관리자 로그인
+            </button>
+        </div>
+    </div>
+
+    <!-- 관리자 메인 화면 -->
+    <div id="adminApp" class="hidden min-h-screen flex flex-col">
+        <!-- 헤더 -->
+        <div class="header-gradient">
+            <div class="flex justify-between items-center px-6 py-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-white" translate="no">OX 퀴즈 관리자</h1>
+                    <div class="flex items-center mt-1">
+                        <div id="gameStatusIndicator" class="w-3 h-3 rounded-full mr-2 status-waiting"></div>
+                        <span class="text-white text-opacity-80 text-sm" id="gameStatusText" translate="no">대기 중</span>
+                    </div>
+                </div>
+                <button onclick="logout()" class="text-white text-opacity-70 hover:text-white text-sm" translate="no">
+                    로그아웃
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 p-6">
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <!-- 게임 제어 패널 -->
+                <div class="xl:col-span-1">
+                    <div class="card rounded-3xl p-6 mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">게임 제어</h2>
+                        
+                        <div class="space-y-4">
+                            <button onclick="startGame()" id="btnStartGame" class="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold transition-all" translate="no">
+                                🚀 게임 시작
+                            </button>
+                            
+                            <button onclick="nextQuestion()" id="btnNextQuestion" disabled class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all disabled:bg-gray-400 disabled:cursor-not-allowed" translate="no">
+                                📝 다음 문제
+                            </button>
+                            
+                            <button onclick="endQuestion()" id="btnEndQuestion" disabled class="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold transition-all disabled:bg-gray-400 disabled:cursor-not-allowed" translate="no">
+                                ⏹️ 문제 종료
+                            </button>
+                            
+                            <button onclick="showResults()" id="btnShowResults" disabled class="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-semibold transition-all disabled:bg-gray-400 disabled:cursor-not-allowed" translate="no">
+                                📊 결과 공개
+                            </button>
+                            
+                            <button onclick="resetGame()" class="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all" translate="no">
+                                🔄 게임 리셋
+                            </button>
+                        </div>
+                        
+                        <!-- 보너스 토글 -->
+                        <div class="mt-6 p-4 bg-orange-50 rounded-xl">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="bonusToggle" class="mr-3">
+                                <span class="font-medium text-orange-800" translate="no">⭐ 현재 문제를 보너스로 설정</span>
+                            </label>
+                            <p class="text-sm text-orange-600 mt-1" translate="no">체크하면 이번 문제만 2배 점수가 적용됩니다</p>
+                        </div>
+                    </div>
+
+                    <!-- 현재 문제 정보 -->
+                    <div class="card rounded-3xl p-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">현재 문제</h2>
+                        <div id="currentQuestionInfo" class="text-gray-500 text-center py-4" translate="no">
+                            문제가 선택되지 않았습니다
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 문제 관리 및 실시간 현황 -->
+                <div class="xl:col-span-2">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- 문제 관리 -->
+                        <div class="card rounded-3xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-xl font-bold text-gray-800" translate="no">문제 관리</h2>
+                                <button onclick="toggleQuestionForm()" id="btnToggleForm" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-sm" translate="no">
+                                    + 새 문제
+                                </button>
+                            </div>
+                            
+                            <!-- 문제 추가/수정 폼 -->
+                            <div id="questionForm" class="hidden mb-4 p-4 bg-gray-50 rounded-xl">
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" translate="no">문제 제목</label>
+                                    <input type="text" id="questionTitle" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="문제를 입력하세요">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" translate="no">정답</label>
+                                    <select id="correctAnswer" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="O">O</option>
+                                        <option value="X">X</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="flex items-center text-sm">
+                                        <input type="checkbox" id="isDefaultBonus" class="mr-2">
+                                        <span translate="no">기본 보너스 문제로 설정</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex space-x-2">
+                                    <button onclick="saveQuestion()" class="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all text-sm" translate="no">
+                                        저장
+                                    </button>
+                                    <button onclick="cancelQuestion()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all text-sm" translate="no">
+                                        취소
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 문제 목록 -->
+                            <div id="questionList" class="space-y-2 max-h-96 overflow-y-auto">
+                                <div class="text-center text-gray-500 py-8" translate="no">저장된 문제가 없습니다</div>
+                            </div>
+                        </div>
+
+                        <!-- 실시간 현황 -->
+                        <div class="card rounded-3xl p-6">
+                            <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">실시간 현황</h2>
+                            <div id="liveStats" class="space-y-4">
+                                <div class="text-center text-gray-500 py-8" translate="no">문제가 진행되지 않고 있습니다</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 사용자 관리 -->
+                    <div class="card rounded-3xl p-6 mt-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">사용자 관리</h2>
+                        <div id="userManagement" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div class="text-center text-gray-500 py-8" translate="no">사용자 정보를 불러오는 중...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            orderBy, 
+            updateDoc,
+            deleteDoc,
+            getDocs,
+            writeBatch,
+            increment,
+            serverTimestamp,
+            where
+        } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_SuKTn4jWyBL3lyk8CK6hPpttpR0MOMc",
+            authDomain: "quizland-hyogi.firebaseapp.com",
+            projectId: "quizland-hyogi",
+            storageBucket: "quizland-hyogi.firebasestorage.app",
+            messagingSenderId: "886372179569",
+            appId: "1:886372179569:web:8616d019f7b63a26e045d0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 전역 변수
+        let gameState = null;
+        let currentQuestion = null;
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let unsubscribeListeners = [];
+        let editingQuestionId = null;
+
+        // 관리자 로그인
+        window.adminLogin = function() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === 'admin123') {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('adminApp').classList.remove('hidden');
+                initializeAdmin();
+            } else {
+                alert('잘못된 비밀번호입니다.');
+            }
+        };
+
+        // 관리자 초기화
+        async function initializeAdmin() {
+            try {
+                // 게임 상태 초기화 (최초 실행 시)
+                const gameStateDoc = await getDoc(doc(db, 'system', 'gameState'));
+                if (!gameStateDoc.exists()) {
+                    await setDoc(doc(db, 'system', 'gameState'), {
+                        status: 'waiting', // waiting, ready, question, result
+                        currentQuestionIndex: 0,
+                        totalQuestions: 0,
+                        createdAt: serverTimestamp()
+                    });
+                }
+
+                setupAdminListeners();
+                loadQuestions();
+            } catch (error) {
+                console.error('관리자 초기화 오류:', error);
+                alert('관리자 초기화 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 관리자 리스너 설정
+        function setupAdminListeners() {
+            // 게임 상태 리스너
+            const gameStateListener = onSnapshot(doc(db, 'system', 'gameState'), (doc) => {
+                if (doc.exists()) {
+                    gameState = doc.data();
+                    updateGameStatusUI();
+                    updateControlButtons();
+                }
+            });
+            unsubscribeListeners.push(gameStateListener);
+
+            // 현재 문제 리스너
+            const questionListener = onSnapshot(doc(db, 'system', 'currentQuestion'), (doc) => {
+                if (doc.exists()) {
+                    currentQuestion = doc.data();
+                    updateCurrentQuestionInfo();
+                } else {
+                    currentQuestion = null;
+                    updateCurrentQuestionInfo();
+                }
+            });
+            unsubscribeListeners.push(questionListener);
+
+            // 실시간 답변 현황 리스너
+            const answersListener = onSnapshot(collection(db, 'answers'), (snapshot) => {
+                updateLiveStats(snapshot);
+            });
+            unsubscribeListeners.push(answersListener);
+
+            // 사용자 목록 리스너
+            const usersListener = onSnapshot(
+                query(collection(db, 'users'), orderBy('score', 'desc')), 
+                (snapshot) => {
+                    updateUserManagement(snapshot);
+                }
+            );
+            unsubscribeListeners.push(usersListener);
+        }
+
+        // 게임 상태 UI 업데이트
+        function updateGameStatusUI() {
+            if (!gameState) return;
+
+            const indicator = document.getElementById('gameStatusIndicator');
+            const text = document.getElementById('gameStatusText');
+
+            switch (gameState.status) {
+                case 'waiting':
+                    indicator.className = 'w-3 h-3 rounded-full mr-2 status-waiting';
+                    text.textContent = '대기 중';
+                    break;
+                case 'ready':
+                    indicator.className = 'w-3 h-3 rounded-full mr-2 status-ready pulse';
+                    text.textContent = '게임 준비됨';
+                    break;
+                case 'question':
+                    indicator.className = 'w-3 h-3 rounded-full mr-2 status-question pulse';
+                    text.textContent = '문제 진행 중';
+                    break;
+                case 'result':
+                    indicator.className = 'w-3 h-3 rounded-full mr-2 status-result';
+                    text.textContent = '결과 표시 중';
+                    break;
+            }
+        }
+
+        // 제어 버튼 상태 업데이트
+        function updateControlButtons() {
+            if (!gameState) return;
+
+            const btnStartGame = document.getElementById('btnStartGame');
+            const btnNextQuestion = document.getElementById('btnNextQuestion');
+            const btnEndQuestion = document.getElementById('btnEndQuestion');
+            const btnShowResults = document.getElementById('btnShowResults');
+
+            // 모든 버튼 초기화
+            btnStartGame.disabled = false;
+            btnNextQuestion.disabled = true;
+            btnEndQuestion.disabled = true;
+            btnShowResults.disabled = true;
+
+            switch (gameState.status) {
+                case 'waiting':
+                    btnStartGame.disabled = questions.length === 0;
+                    break;
+                case 'ready':
+                    btnStartGame.disabled = true;
+                    btnNextQuestion.disabled = false;
+                    break;
+                case 'question':
+                    btnStartGame.disabled = true;
+                    btnEndQuestion.disabled = false;
+                    break;
+                case 'result':
+                    btnStartGame.disabled = true;
+                    btnShowResults.disabled = false;
+                    btnNextQuestion.disabled = gameState.currentQuestionIndex >= questions.length - 1;
+                    break;
+            }
+        }
+
+        // 현재 문제 정보 업데이트
+        function updateCurrentQuestionInfo() {
+            const info = document.getElementById('currentQuestionInfo');
+            
+            if (!currentQuestion) {
+                info.innerHTML = '<div class="text-gray-500 text-center py-4" translate="no">문제가 선택되지 않았습니다</div>';
+                return;
+            }
+
+            const bonusText = currentQuestion.isBonus ? '<span class="text-orange-500 font-bold">⭐ 보너스</span>' : '';
+            info.innerHTML = `
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="text-sm text-blue-600 font-medium mb-1">문제 ${currentQuestion.number}</div>
+                    <div class="text-gray-800 font-medium mb-2">${currentQuestion.title}</div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-green-600 font-medium">정답: ${currentQuestion.correctAnswer}</span>
+                        ${bonusText}
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">상태: ${currentQuestion.status === 'active' ? '진행 중' : '종료됨'}</div>
+                </div>
+            `;
+        }
+
+        // 게임 시작
+        window.startGame = async function() {
+            if (questions.length === 0) {
+                alert('먼저 문제를 추가해주세요.');
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, 'system', 'gameState'), {
+                    status: 'ready',
+                    currentQuestionIndex: 0,
+                    totalQuestions: questions.length,
+                    startedAt: serverTimestamp()
+                });
+                
+                currentQuestionIndex = 0;
+                alert('게임이 시작되었습니다! "다음 문제" 버튼을 눌러 첫 번째 문제를 진행하세요.');
+            } catch (error) {
+                console.error('게임 시작 오류:', error);
+                alert('게임 시작 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 다음 문제
+        window.nextQuestion = async function() {
+            if (currentQuestionIndex >= questions.length) {
+                alert('모든 문제가 완료되었습니다.');
+                return;
+            }
+
+            try {
+                const question = questions[currentQuestionIndex];
+                const isBonus = document.getElementById('bonusToggle').checked || question.isBonus;
+
+                // 이전 답변들 삭제
+                const answersSnapshot = await getDocs(collection(db, 'answers'));
+                const batch = writeBatch(db);
+                answersSnapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+
+                // 현재 문제 설정
+                const questionData = {
+                    id: `q${currentQuestionIndex + 1}_${Date.now()}`,
+                    number: currentQuestionIndex + 1,
+                    title: question.title,
+                    correctAnswer: question.correctAnswer,
+                    isBonus: isBonus,
+                    status: 'active',
+                    startTime: serverTimestamp()
+                };
+
+                await setDoc(doc(db, 'system', 'currentQuestion'), questionData);
+                await updateDoc(doc(db, 'system', 'gameState'), {
+                    status: 'question',
+                    currentQuestionIndex: currentQuestionIndex
+                });
+
+                // 보너스 토글 리셋
+                document.getElementById('bonusToggle').checked = false;
+
+                alert(`문제 ${currentQuestionIndex + 1}번이 시작되었습니다!`);
+            } catch (error) {
+                console.error('문제 시작 오류:', error);
+                alert('문제 시작 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 문제 종료
+        window.endQuestion = async function() {
+            if (!currentQuestion) {
+                alert('진행 중인 문제가 없습니다.');
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, 'system', 'currentQuestion'), {
+                    status: 'ended',
+                    endTime: serverTimestamp()
+                });
+
+                await updateDoc(doc(db, 'system', 'gameState'), {
+                    status: 'result'
+                });
+
+                alert('문제가 종료되었습니다! "결과 공개" 버튼을 눌러 점수를 업데이트하세요.');
+            } catch (error) {
+                console.error('문제 종료 오류:', error);
+                alert('문제 종료 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 결과 공개 및 점수 업데이트
+        window.showResults = async function() {
+            if (!currentQuestion || currentQuestion.status !== 'ended') {
+                alert('종료된 문제가 없습니다.');
+                return;
+            }
+
+            try {
+                // 모든 답변 가져오기
+                const answersSnapshot = await getDocs(
+                    query(collection(db, 'answers'), where('questionId', '==', currentQuestion.id))
+                );
+                
+                const pointsToAdd = currentQuestion.isBonus ? 2 : 1;
+
+                // 정답자들의 점수 업데이트
+                const batch = writeBatch(db);
+                let correctCount = 0;
+                
+                answersSnapshot.forEach((doc) => {
+                    const answer = doc.data();
+                    if (answer.answer === currentQuestion.correctAnswer) {
+                        const userRef = doc(db, 'users', answer.userId);
+                        batch.update(userRef, {
+                            score: increment(pointsToAdd)
+                        });
+                        correctCount++;
+                    }
+                });
+
+                await batch.commit();
+                
+                // 다음 문제 인덱스 증가
+                currentQuestionIndex++;
+                
+                await updateDoc(doc(db, 'system', 'gameState'), {
+                    status: 'ready',
+                    currentQuestionIndex: currentQuestionIndex
+                });
+
+                alert(`점수가 업데이트되었습니다! (정답자: ${correctCount}명, ${pointsToAdd}점씩 추가)`);
+            } catch (error) {
+                console.error('결과 공개 오류:', error);
+                alert('결과 공개 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 게임 리셋
+        window.resetGame = async function() {
+            if (!confirm('정말 게임을 리셋하시겠습니까? 모든 진행 상황이 초기화됩니다.')) {
+                return;
+            }
+
+            try {
+                // 모든 답변 삭제
+                const answersSnapshot = await getDocs(collection(db, 'answers'));
+                const batch = writeBatch(db);
+                answersSnapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+
+                // 현재 문제 삭제
+                await deleteDoc(doc(db, 'system', 'currentQuestion'));
+
+                // 게임 상태 리셋
+                await updateDoc(doc(db, 'system', 'gameState'), {
+                    status: 'waiting',
+                    currentQuestionIndex: 0
+                });
+
+                currentQuestionIndex = 0;
+                alert('게임이 리셋되었습니다.');
+            } catch (error) {
+                console.error('게임 리셋 오류:', error);
+                alert('게임 리셋 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 문제 관리 함수들
+        window.toggleQuestionForm = function() {
+            const form = document.getElementById('questionForm');
+            const btn = document.getElementById('btnToggleForm');
+            
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                btn.textContent = '취소';
+                btn.className = 'px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-sm';
+            } else {
+                cancelQuestion();
+            }
+        };
+
+        window.saveQuestion = async function() {
+            const title = document.getElementById('questionTitle').value.trim();
+            const correctAnswer = document.getElementById('correctAnswer').value;
+            const isBonus = document.getElementById('isDefaultBonus').checked;
+
+            if (!title) {
+                alert('문제 제목을 입력해주세요.');
+                return;
+            }
+
+            try {
+                const questionData = {
+                    title: title,
+                    correctAnswer: correctAnswer,
+                    isBonus: isBonus,
+                    createdAt: serverTimestamp(),
+                    order: questions.length
+                };
+
+                if (editingQuestionId) {
+                    // 수정
+                    await updateDoc(doc(db, 'questions', editingQuestionId), questionData);
+                    editingQuestionId = null;
+                } else {
+                    // 새로 추가
+                    const questionId = `q_${Date.now()}`;
+                    await setDoc(doc(db, 'questions', questionId), questionData);
+                }
+
+                cancelQuestion();
+                loadQuestions();
+                alert('문제가 저장되었습니다.');
+            } catch (error) {
+                console.error('문제 저장 오류:', error);
+                alert('문제 저장 중 오류가 발생했습니다.');
+            }
+        };
+
+        window.cancelQuestion = function() {
+            document.getElementById('questionForm').classList.add('hidden');
+            document.getElementById('btnToggleForm').textContent = '+ 새 문제';
+            document.getElementById('btnToggleForm').className = 'px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-sm';
+            
+            // 폼 초기화
+            document.getElementById('questionTitle').value = '';
+            document.getElementById('correctAnswer').value = 'O';
+            document.getElementById('isDefaultBonus').checked = false;
+            editingQuestionId = null;
+        };
+
+        // 문제 목록 로드
+        async function loadQuestions() {
+            try {
+                const questionsSnapshot = await getDocs(
+                    query(collection(db, 'questions'), orderBy('order'))
+                );
+                
+                questions = [];
+                questionsSnapshot.forEach((doc) => {
+                    questions.push({ id: doc.id, ...doc.data() });
+                });
+
+                updateQuestionList();
+                updateControlButtons();
+            } catch (error) {
+                console.error('문제 로드 오류:', error);
+            }
+        }
+
+        // 문제 목록 UI 업데이트
+        function updateQuestionList() {
+            const list = document.getElementById('questionList');
+            
+            if (questions.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-500 py-8" translate="no">저장된 문제가 없습니다</div>';
+                return;
+            }
+
+            let html = '';
+            questions.forEach((question, index) => {
+                const bonusIcon = question.isBonus ? '<span class="text-orange-500">⭐</span>' : '';
+                const isActive = currentQuestionIndex === index && gameState?.status === 'question';
+                const cardClass = isActive ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200';
+                
+                html += `
+                    <div class="border ${cardClass} rounded-lg p-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium text-gray-800 truncate">
+                                    ${index + 1}. ${question.title} ${bonusIcon}
+                                </div>
+                                <div class="text-xs text-gray-500">정답: ${question.correctAnswer}</div>
+                            </div>
+                            <div class="flex space-x-1 ml-2">
+                                <button onclick="editQuestion('${question.id}')" class="px-2 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600" translate="no">
+                                    수정
+                                </button>
+                                <button onclick="deleteQuestion('${question.id}')" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600" translate="no">
+                                    삭제
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            list.innerHTML = html;
+        }
+
+        // 문제 수정
+        window.editQuestion = async function(questionId) {
+            try {
+                const questionDoc = await getDoc(doc(db, 'questions', questionId));
+                if (!questionDoc.exists()) {
+                    alert('문제를 찾을 수 없습니다.');
+                    return;
+                }
+
+                const questionData = questionDoc.data();
+                editingQuestionId = questionId;
+
+                // 폼에 데이터 채우기
+                document.getElementById('questionTitle').value = questionData.title;
+                document.getElementById('correctAnswer').value = questionData.correctAnswer;
+                document.getElementById('isDefaultBonus').checked = questionData.isBonus || false;
+
+                // 폼 표시
+                document.getElementById('questionForm').classList.remove('hidden');
+                document.getElementById('btnToggleForm').textContent = '취소';
+                document.getElementById('btnToggleForm').className = 'px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-sm';
+            } catch (error) {
+                console.error('문제 수정 오류:', error);
+                alert('문제 수정 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 문제 삭제
+        window.deleteQuestion = async function(questionId) {
+            if (!confirm('정말 이 문제를 삭제하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                await deleteDoc(doc(db, 'questions', questionId));
+                loadQuestions();
+                alert('문제가 삭제되었습니다.');
+            } catch (error) {
+                console.error('문제 삭제 오류:', error);
+                alert('문제 삭제 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 실시간 현황 업데이트
+        function updateLiveStats(snapshot) {
+            if (!currentQuestion || !gameState || gameState.status !== 'question') {
+                document.getElementById('liveStats').innerHTML = '<div class="text-center text-gray-500 py-8" translate="no">문제가 진행되지 않고 있습니다</div>';
+                return;
+            }
+
+            const answers = { O: [], X: [] };
+            let totalAnswers = 0;
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                if (data.questionId === currentQuestion.id) {
+                    answers[data.answer].push({
+                        name: data.userName,
+                        position: data.userPosition
+                    });
+                    totalAnswers++;
+                }
+            });
+
+            const oCount = answers.O.length;
+            const xCount = answers.X.length;
+            const oPercent = totalAnswers > 0 ? Math.round((oCount / totalAnswers) * 100) : 0;
+            const xPercent = totalAnswers > 0 ? Math.round((xCount / totalAnswers) * 100) : 0;
+
+            let html = `
+                <div class="mb-4">
+                    <div class="text-center text-lg font-bold text-gray-700 mb-2" translate="no">
+                        총 ${totalAnswers}명 참여
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-blue-100 p-4 rounded-xl text-center">
+                            <div class="text-3xl font-bold text-blue-600">O</div>
+                            <div class="text-xl font-bold">${oCount}명</div>
+                            <div class="text-sm text-blue-500">${oPercent}%</div>
+                        </div>
+                        <div class="bg-red-100 p-4 rounded-xl text-center">
+                            <div class="text-3xl font-bold text-red-600">X</div>
+                            <div class="text-xl font-bold">${xCount}명</div>
+                            <div class="text-sm text-red-500">${xPercent}%</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 정답 표시
+            const correctAnswer = currentQuestion.correctAnswer;
+            const correctCount = answers[correctAnswer].length;
+            const incorrectCount = totalAnswers - correctCount;
+            const correctPercent = totalAnswers > 0 ? Math.round((correctCount / totalAnswers) * 100) : 0;
+
+            html += `
+                <div class="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div class="text-sm font-medium text-green-800 mb-1" translate="no">정답: ${correctAnswer}</div>
+                    <div class="text-green-700">
+                        <span class="font-bold">${correctCount}명 정답</span> (${correctPercent}%) / 
+                        <span>${incorrectCount}명 오답</span>
+                    </div>
+                </div>
+            `;
+
+            // O 선택자 목록
+            if (answers.O.length > 0) {
+                html += `
+                    <div class="mb-3">
+                        <div class="font-medium text-blue-600 mb-2 text-sm" translate="no">O 선택자 (${oCount}명):</div>
+                        <div class="text-xs text-gray-600 space-y-1">
+                `;
+                answers.O.forEach(user => {
+                    html += `<div>${user.name} (${user.position})</div>`;
+                });
+                html += '</div></div>';
+            }
+
+            // X 선택자 목록
+            if (answers.X.length > 0) {
+                html += `
+                    <div>
+                        <div class="font-medium text-red-600 mb-2 text-sm" translate="no">X 선택자 (${xCount}명):</div>
+                        <div class="text-xs text-gray-600 space-y-1">
+                `;
+                answers.X.forEach(user => {
+                    html += `<div>${user.name} (${user.position})</div>`;
+                });
+                html += '</div></div>';
+            }
+
+            document.getElementById('liveStats').innerHTML = html;
+        }
+
+        // 사용자 관리 업데이트
+        function updateUserManagement(snapshot) {
+            let html = '';
+            
+            snapshot.forEach((doc) => {
+                const user = { id: doc.id, ...doc.data() };
+                const statusClass = user.isFrozen ? 'bg-red-100 border-red-200' : (user.isOnline ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200');
+                const statusText = user.isFrozen ? '🚫 동결됨' : (user.isOnline ? '🟢 온라인' : '⚪ 오프라인');
+                
+                html += `
+                    <div class="flex items-center justify-between p-3 rounded-lg border ${statusClass}">
+                        <div>
+                            <div class="font-medium text-sm">${user.name} (${user.position})</div>
+                            <div class="text-xs text-gray-500">점수: ${user.score || 0}점 | ${statusText}</div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button onclick="adjustUserScore('${user.id}', '${user.name}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-all" translate="no">
+                                점수
+                            </button>
+                            <button onclick="toggleUserFreeze('${user.id}', '${user.name}', ${user.isFrozen || false})" class="px-2 py-1 ${user.isFrozen ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white rounded text-xs transition-all" translate="no">
+                                ${user.isFrozen ? '해제' : '동결'}
+                            </button>
+                            <button onclick="resetUserScore('${user.id}', '${user.name}')" class="px-2 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 transition-all" translate="no">
+                                리셋
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (html === '') {
+                html = '<div class="text-center text-gray-500 py-8" translate="no">참가자가 없습니다.</div>';
+            }
+            
+            document.getElementById('userManagement').innerHTML = html;
+        }
+
+        // 사용자 점수 조정
+        window.adjustUserScore = async function(userId, userName) {
+            try {
+                const userDoc = await getDoc(doc(db, 'users', userId));
+                const currentScore = userDoc.data().score || 0;
+                
+                const newScore = prompt(`${userName}의 새로운 점수를 입력하세요 (현재: ${currentScore}점):`);
+                if (newScore === null || newScore === '') return;
+                
+                const score = parseInt(newScore);
+                if (isNaN(score)) {
+                    alert('올바른 숫자를 입력해주세요.');
+                    return;
+                }
+
+                await updateDoc(doc(db, 'users', userId), {
+                    score: score
+                });
+                alert(`${userName}의 점수가 ${score}점으로 조정되었습니다.`);
+            } catch (error) {
+                console.error('점수 조정 오류:', error);
+                alert('점수 조정 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 사용자 동결/해제
+        window.toggleUserFreeze = async function(userId, userName, currentStatus) {
+            const action = currentStatus ? '해제' : '동결';
+            if (!confirm(`정말 ${userName}을 ${action}하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, 'users', userId), {
+                    isFrozen: !currentStatus
+                });
+                
+                alert(`${userName}이 ${action}되었습니다.`);
+            } catch (error) {
+                console.error('사용자 상태 변경 오류:', error);
+                alert('사용자 상태 변경 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 사용자 점수 리셋
+        window.resetUserScore = async function(userId, userName) {
+            if (!confirm(`정말 ${userName}의 점수를 리셋하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, 'users', userId), {
+                    score: 0
+                });
+                alert(`${userName}의 점수가 리셋되었습니다.`);
+            } catch (error) {
+                console.error('점수 리셋 오류:', error);
+                alert('점수 리셋 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 로그아웃
+        window.logout = function() {
+            // 리스너 정리
+            unsubscribeListeners.forEach(unsubscribe => unsubscribe());
+            unsubscribeListeners = [];
+            
+            // 변수 초기화
+            gameState = null;
+            currentQuestion = null;
+            questions = [];
+            currentQuestionIndex = 0;
+            editingQuestionId = null;
+            
+            // 화면 초기화
+            document.getElementById('adminApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('adminPassword').value = '';
+        };
+
+        // Enter 키로 로그인
+        document.getElementById('adminPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                adminLogin();
+            }
+        });
+    </script>
+</body>
+</html>
