@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google" content="notranslate">
-    <title>OX 퀴즈 시스템</title>
+    <title>OX 퀴즈 참여</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -74,6 +74,11 @@
             background: rgba(255, 255, 255, 0.7);
             color: #6b7280;
         }
+
+        .frozen-overlay {
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid #ef4444;
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -81,7 +86,7 @@
     <div id="loginScreen" class="min-h-screen flex items-center justify-center p-6">
         <div class="card rounded-3xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2" translate="no">OX 퀴즈 시스템</h1>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2" translate="no">OX 퀴즈 참여</h1>
                 <p class="text-gray-600" translate="no">로그인하여 참여하세요</p>
             </div>
             
@@ -105,12 +110,6 @@
                 <button onclick="handleLogin()" class="btn-primary w-full py-3 text-white rounded-xl font-semibold transform hover:-translate-y-1" translate="no">
                     로그인
                 </button>
-                
-                <div class="mt-4 text-center">
-                    <button onclick="toggleAdminLogin()" class="text-sm text-gray-500 hover:text-gray-700" translate="no">
-                        관리자로 로그인
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -145,29 +144,37 @@
             </div>
         </div>
 
+        <!-- 동결 상태 알림 -->
+        <div id="frozenAlert" class="hidden mx-6 mt-4 p-4 bg-red-100 border border-red-300 rounded-xl">
+            <div class="flex items-center">
+                <div class="text-red-600 text-xl mr-3">🚫</div>
+                <div class="text-red-800 font-medium" translate="no">계정이 동결되어 퀴즈 참여가 제한됩니다.</div>
+            </div>
+        </div>
+
         <!-- 퀴즈 탭 -->
         <div id="quizContent" class="flex-1 flex flex-col">
             <!-- 메인 디스플레이 영역 -->
             <div class="flex-1 flex items-center justify-center p-6">
-                <div class="card rounded-3xl w-full max-w-2xl mx-auto py-12 px-6">
+                <div class="card rounded-3xl w-full max-w-2xl mx-auto py-12 px-6" id="quizCard">
                     <div id="quizDisplay" class="text-center text-gray-400">
-                        <div class="text-6xl mb-6 opacity-60">🤔</div>
-                        <div class="text-xl font-semibold opacity-80" translate="no">문제를 기다리고 있습니다...</div>
+                        <div class="text-6xl mb-6 opacity-60">⏰</div>
+                        <div class="text-xl font-semibold opacity-80" translate="no">게임 시작을 기다리고 있습니다...</div>
                     </div>
                 </div>
             </div>
 
             <!-- 컨트롤 패널 -->
-            <div class="card m-6 rounded-3xl p-6">
+            <div class="card m-6 rounded-3xl p-6" id="controlPanel">
                 <div id="quizControls">
                     <!-- OX 선택 버튼 -->
                     <div class="grid grid-cols-2 gap-6 mb-8">
                         <button id="btnO" onclick="selectAnswer('O')" disabled
-                                class="h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-400">
+                                class="h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 bg-gray-400 cursor-not-allowed">
                             O
                         </button>
                         <button id="btnX" onclick="selectAnswer('X')" disabled
-                                class="h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-400">
+                                class="h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 bg-gray-400 cursor-not-allowed">
                             X
                         </button>
                     </div>
@@ -175,7 +182,7 @@
                     <!-- 상태 표시 -->
                     <div class="text-center">
                         <div id="quizStatus" class="text-lg font-medium text-gray-600" translate="no">
-                            문제 대기 중...
+                            게임 시작 대기 중...
                         </div>
                     </div>
                 </div>
@@ -187,86 +194,7 @@
             <div class="card rounded-3xl w-full max-w-4xl mx-auto p-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center" translate="no">실시간 랭킹</h2>
                 <div id="rankingList" class="space-y-3">
-                    <!-- 랭킹 목록이 여기에 표시됩니다 -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 관리자 화면 -->
-    <div id="adminApp" class="hidden min-h-screen flex flex-col">
-        <div class="header-gradient">
-            <div class="flex justify-between items-center px-6 py-4">
-                <h1 class="text-2xl font-bold text-white" translate="no">OX 퀴즈 관리자</h1>
-                <button onclick="logout()" class="text-white text-opacity-70 hover:text-white text-sm" translate="no">
-                    로그아웃
-                </button>
-            </div>
-        </div>
-
-        <div class="flex-1 p-6">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- 문제 관리 -->
-                <div class="card rounded-3xl p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">문제 관리</h2>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2" translate="no">문제 번호</label>
-                        <input type="number" id="questionNumber" class="w-full px-4 py-3 border border-gray-300 rounded-xl" placeholder="1">
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2" translate="no">문제 제목</label>
-                        <input type="text" id="questionTitle" class="w-full px-4 py-3 border border-gray-300 rounded-xl" placeholder="문제 제목을 입력하세요">
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2" translate="no">정답</label>
-                        <select id="correctAnswer" class="w-full px-4 py-3 border border-gray-300 rounded-xl">
-                            <option value="O">O</option>
-                            <option value="X">X</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="isBonus" class="mr-2">
-                            <span class="text-sm font-medium text-gray-700" translate="no">보너스 문제 (2배 점수)</span>
-                        </label>
-                    </div>
-                    
-                    <button onclick="startQuestion()" class="btn-primary w-full py-3 text-white rounded-xl font-semibold" translate="no">
-                        문제 시작
-                    </button>
-                </div>
-
-                <!-- 실시간 현황 -->
-                <div class="card rounded-3xl p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">실시간 현황</h2>
-                    <div id="liveStats" class="space-y-4">
-                        <div class="text-center text-gray-500" translate="no">문제가 시작되지 않았습니다</div>
-                    </div>
-                </div>
-
-                <!-- 사용자 관리 -->
-                <div class="card rounded-3xl p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">사용자 관리</h2>
-                    <div id="userManagement" class="space-y-2">
-                        <!-- 사용자 목록이 여기에 표시됩니다 -->
-                    </div>
-                </div>
-
-                <!-- 문제 제어 -->
-                <div class="card rounded-3xl p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4" translate="no">문제 제어</h2>
-                    <div class="grid grid-cols-2 gap-4">
-                        <button onclick="endQuestion()" class="bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold" translate="no">
-                            문제 종료
-                        </button>
-                        <button onclick="showResults()" class="bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold" translate="no">
-                            결과 공개
-                        </button>
-                    </div>
+                    <div class="text-center text-gray-500 py-8" translate="no">랭킹 정보를 불러오는 중...</div>
                 </div>
             </div>
         </div>
@@ -275,7 +203,19 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            orderBy, 
+            updateDoc,
+            serverTimestamp,
+            where
+        } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA_SuKTn4jWyBL3lyk8CK6hPpttpR0MOMc",
@@ -290,19 +230,8 @@
         const db = getFirestore(app);
 
         // 전역 변수
-        window.db = db;
-        window.doc = doc;
-        window.setDoc = setDoc;
-        window.getDoc = getDoc;
-        window.onSnapshot = onSnapshot;
-        window.collection = collection;
-        window.query = query;
-        window.orderBy = orderBy;
-        window.updateDoc = updateDoc;
-        window.deleteDoc = deleteDoc;
-
         let currentUser = null;
-        let isAdmin = false;
+        let gameState = null;
         let currentQuestion = null;
         let selectedAnswer = null;
         let hasAnswered = false;
@@ -322,6 +251,10 @@
                 if (userDoc.exists()) {
                     // 기존 사용자
                     currentUser = { id: employeeId, ...userDoc.data() };
+                    await updateDoc(doc(db, 'users', employeeId), {
+                        lastLogin: serverTimestamp(),
+                        isOnline: true
+                    });
                     showMainApp();
                 } else {
                     // 신규 사용자
@@ -337,29 +270,20 @@
                         name: userName,
                         position: userPosition,
                         score: 0,
-                        joinedAt: new Date().toISOString(),
+                        joinedAt: serverTimestamp(),
+                        lastLogin: serverTimestamp(),
                         isActive: true,
-                        isFrozen: false
+                        isFrozen: false,
+                        isOnline: true
                     };
                     
                     await setDoc(doc(db, 'users', employeeId), newUser);
-                    currentUser = { id: employeeId, ...newUser };
+                    currentUser = { id: employeeId, ...newUser, score: 0 };
                     showMainApp();
                 }
             } catch (error) {
                 console.error('로그인 오류:', error);
                 alert('로그인 중 오류가 발생했습니다.');
-            }
-        };
-
-        // 관리자 로그인 토글
-        window.toggleAdminLogin = function() {
-            const password = prompt('관리자 비밀번호를 입력하세요:');
-            if (password === 'admin123') {
-                isAdmin = true;
-                showAdminApp();
-            } else if (password !== null) {
-                alert('잘못된 비밀번호입니다.');
             }
         };
 
@@ -370,19 +294,20 @@
             document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.position})`;
             document.getElementById('userScore').textContent = currentUser.score || 0;
             
-            setupUserListeners();
+            setupListeners();
         }
 
-        // 관리자 앱 표시
-        function showAdminApp() {
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('adminApp').classList.remove('hidden');
-            
-            setupAdminListeners();
-        }
+        // 리스너 설정
+        function setupListeners() {
+            // 게임 상태 리스너
+            const gameStateListener = onSnapshot(doc(db, 'system', 'gameState'), (doc) => {
+                if (doc.exists()) {
+                    gameState = doc.data();
+                    updateGameState();
+                }
+            });
+            unsubscribeListeners.push(gameStateListener);
 
-        // 사용자 리스너 설정
-        function setupUserListeners() {
             // 현재 문제 리스너
             const questionListener = onSnapshot(doc(db, 'system', 'currentQuestion'), (doc) => {
                 if (doc.exists()) {
@@ -395,113 +320,198 @@
             });
             unsubscribeListeners.push(questionListener);
 
-            // 사용자 점수 리스너
+            // 사용자 정보 리스너 (점수, 동결 상태 등)
             const userListener = onSnapshot(doc(db, 'users', currentUser.id), (doc) => {
                 if (doc.exists()) {
                     const userData = doc.data();
                     currentUser = { ...currentUser, ...userData };
                     document.getElementById('userScore').textContent = userData.score || 0;
                     
+                    // 동결 상태 처리
                     if (userData.isFrozen) {
-                        document.getElementById('quizStatus').textContent = '계정이 동결되었습니다.';
-                        document.getElementById('btnO').disabled = true;
-                        document.getElementById('btnX').disabled = true;
+                        showFrozenState();
+                    } else {
+                        hideFrozenState();
                     }
                 }
             });
             unsubscribeListeners.push(userListener);
 
             // 랭킹 리스너
-            const rankingListener = onSnapshot(query(collection(db, 'users'), orderBy('score', 'desc')), (snapshot) => {
-                updateRanking(snapshot);
-            });
+            const rankingListener = onSnapshot(
+                query(collection(db, 'users'), where('isActive', '==', true), orderBy('score', 'desc')), 
+                (snapshot) => {
+                    updateRanking(snapshot);
+                }
+            );
             unsubscribeListeners.push(rankingListener);
         }
 
-        // 관리자 리스너 설정
-        function setupAdminListeners() {
-            // 실시간 답변 현황 리스너
-            const answersListener = onSnapshot(collection(db, 'answers'), (snapshot) => {
-                updateLiveStats(snapshot);
-            });
-            unsubscribeListeners.push(answersListener);
+        // 게임 상태 업데이트
+        function updateGameState() {
+            if (!gameState) return;
 
-            // 사용자 목록 리스너
-            const usersListener = onSnapshot(collection(db, 'users'), (snapshot) => {
-                updateUserManagement(snapshot);
-            });
-            unsubscribeListeners.push(usersListener);
+            const display = document.getElementById('quizDisplay');
+            const status = document.getElementById('quizStatus');
+
+            switch (gameState.status) {
+                case 'waiting':
+                    display.innerHTML = '<div class="text-6xl mb-6 opacity-60">⏰</div><div class="text-xl font-semibold opacity-80" translate="no">게임 시작을 기다리고 있습니다...</div>';
+                    status.textContent = '게임 시작 대기 중...';
+                    resetButtons();
+                    break;
+                case 'ready':
+                    display.innerHTML = '<div class="text-6xl mb-6 opacity-60">🚀</div><div class="text-xl font-semibold opacity-80" translate="no">곧 문제가 시작됩니다!</div>';
+                    status.textContent = '문제 준비 중...';
+                    resetButtons();
+                    break;
+                case 'question':
+                    // 문제별 처리는 updateQuizDisplay에서
+                    break;
+                case 'result':
+                    showResult();
+                    break;
+            }
         }
 
         // 퀴즈 화면 업데이트
         function updateQuizDisplay() {
+            if (!currentQuestion || !gameState) return;
+
             const display = document.getElementById('quizDisplay');
             const status = document.getElementById('quizStatus');
             const btnO = document.getElementById('btnO');
             const btnX = document.getElementById('btnX');
 
-            if (!currentQuestion) {
-                display.innerHTML = '<div class="text-6xl mb-6 opacity-60">🤔</div><div class="text-xl font-semibold opacity-80" translate="no">문제를 기다리고 있습니다...</div>';
-                status.textContent = '문제 대기 중...';
-                btnO.disabled = true;
-                btnX.disabled = true;
-                btnO.className = 'h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 bg-gray-400';
-                btnX.className = 'h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 bg-gray-400';
+            if (gameState.status === 'question' && currentQuestion.status === 'active') {
+                if (!hasAnswered && !currentUser.isFrozen) {
+                    // 문제 표시
+                    const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2" translate="no">⭐ 보너스 문제 (2배 점수)</div>' : '';
+                    display.innerHTML = `
+                        <div class="text-2xl font-bold text-gray-800 mb-4" translate="no">문제 ${currentQuestion.number}</div>
+                        <div class="text-xl text-gray-600 mb-4" translate="no">${currentQuestion.title}</div>
+                        ${bonusText}
+                    `;
+                    status.textContent = 'O 또는 X를 선택하세요';
+                    
+                    // 버튼 활성화
+                    btnO.disabled = false;
+                    btnX.disabled = false;
+                    btnO.className = 'btn-o h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
+                    btnX.className = 'btn-x h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
+                } else if (hasAnswered) {
+                    // 답변 대기 상태
+                    const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
+                    display.innerHTML = `
+                        <div class="text-center w-full">
+                            <div class="ox-display ${color}">${selectedAnswer}</div>
+                            <div class="text-lg text-gray-500 mt-4 loading" translate="no">결과를 기다리는 중...</div>
+                        </div>
+                    `;
+                    status.textContent = '답변을 제출했습니다. 결과를 기다려주세요...';
+                    disableButtons();
+                }
+            } else if (currentQuestion.status === 'ended') {
+                showQuestionResult();
+            }
+        }
+
+        // 문제 결과 표시
+        function showQuestionResult() {
+            const display = document.getElementById('quizDisplay');
+            const status = document.getElementById('quizStatus');
+            
+            if (hasAnswered) {
+                const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+                const resultText = isCorrect ? '✓ 정답입니다!' : '✗ 오답입니다.';
+                const resultColor = isCorrect ? 'text-green-500' : 'text-red-500';
+                
+                display.innerHTML = `
+                    <div class="text-center">
+                        <div class="${resultColor} text-3xl font-bold mb-4">${resultText}</div>
+                        <div class="text-xl text-gray-600 mb-2" translate="no">정답: ${currentQuestion.correctAnswer}</div>
+                        <div class="text-lg text-gray-500" translate="no">다음 문제를 기다려주세요...</div>
+                    </div>
+                `;
+                status.textContent = '문제가 종료되었습니다';
+            } else {
+                display.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-gray-500 text-2xl font-bold mb-4">시간 초과</div>
+                        <div class="text-xl text-gray-600 mb-2" translate="no">정답: ${currentQuestion.correctAnswer}</div>
+                        <div class="text-lg text-gray-500" translate="no">다음 문제를 기다려주세요...</div>
+                    </div>
+                `;
+                status.textContent = '시간이 초과되었습니다';
+            }
+            
+            disableButtons();
+            // 다음 문제를 위해 상태 초기화
+            setTimeout(() => {
                 hasAnswered = false;
                 selectedAnswer = null;
-                return;
-            }
-
-            if (currentQuestion.status === 'active' && !hasAnswered && !currentUser.isFrozen) {
-                display.innerHTML = `<div class="text-2xl font-bold text-gray-800 mb-4" translate="no">문제 ${currentQuestion.number}</div><div class="text-xl text-gray-600" translate="no">${currentQuestion.title}</div>${currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2" translate="no">⭐ 보너스 문제 (2배 점수)</div>' : ''}`;
-                status.textContent = 'O 또는 X를 선택하세요';
-                btnO.disabled = false;
-                btnX.disabled = false;
-                btnO.className = 'btn-o h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
-                btnX.className = 'btn-x h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 transform hover:-translate-y-1';
-            } else if (currentQuestion.status === 'ended') {
-                const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
-                const resultText = hasAnswered ? (isCorrect ? '정답입니다!' : '오답입니다.') : '시간 초과';
-                const resultColor = hasAnswered ? (isCorrect ? 'text-green-500' : 'text-red-500') : 'text-gray-500';
-                
-                display.innerHTML = `<div class="text-center"><div class="${resultColor} text-2xl font-bold mb-4">${resultText}</div><div class="text-gray-600" translate="no">정답: ${currentQuestion.correctAnswer}</div></div>`;
-                status.textContent = '문제가 종료되었습니다';
-                btnO.disabled = true;
-                btnX.disabled = true;
-            }
+            }, 3000);
         }
 
         // 답변 선택
         window.selectAnswer = async function(answer) {
-            if (!currentQuestion || currentQuestion.status !== 'active' || hasAnswered || currentUser.isFrozen) {
+            if (!currentQuestion || gameState.status !== 'question' || currentQuestion.status !== 'active' || hasAnswered || currentUser.isFrozen) {
                 return;
             }
 
             selectedAnswer = answer;
             hasAnswered = true;
 
-            // UI 업데이트
-            const display = document.getElementById('quizDisplay');
-            const color = answer === 'O' ? 'text-blue-500' : 'text-red-500';
-            display.innerHTML = `<div class="text-center w-full"><div class="ox-display ${color}">${answer}</div><div class="text-lg text-gray-500 mt-4 loading" translate="no">잠시 기다려 주세요...</div></div>`;
-            
-            document.getElementById('quizStatus').textContent = '답변을 제출했습니다. 결과를 기다려주세요...';
-            document.getElementById('btnO').disabled = true;
-            document.getElementById('btnX').disabled = true;
+            // UI 즉시 업데이트
+            updateQuizDisplay();
 
             // Firestore에 답변 저장
             try {
-                await setDoc(doc(db, 'answers', currentUser.id), {
+                await setDoc(doc(db, 'answers', `${currentQuestion.id}_${currentUser.id}`), {
                     userId: currentUser.id,
                     userName: currentUser.name,
+                    userPosition: currentUser.position,
                     answer: answer,
+                    questionId: currentQuestion.id,
                     questionNumber: currentQuestion.number,
-                    timestamp: new Date().toISOString()
+                    timestamp: serverTimestamp()
                 });
             } catch (error) {
                 console.error('답변 저장 오류:', error);
             }
         };
+
+        // 버튼 초기화
+        function resetButtons() {
+            const btnO = document.getElementById('btnO');
+            const btnX = document.getElementById('btnX');
+            
+            btnO.disabled = true;
+            btnX.disabled = true;
+            btnO.className = 'h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 bg-gray-400 cursor-not-allowed';
+            btnX.className = 'h-16 text-3xl font-bold text-white rounded-2xl transition-all duration-300 bg-gray-400 cursor-not-allowed';
+        }
+
+        // 버튼 비활성화
+        function disableButtons() {
+            document.getElementById('btnO').disabled = true;
+            document.getElementById('btnX').disabled = true;
+        }
+
+        // 동결 상태 표시
+        function showFrozenState() {
+            document.getElementById('frozenAlert').classList.remove('hidden');
+            document.getElementById('quizCard').classList.add('frozen-overlay');
+            document.getElementById('controlPanel').classList.add('frozen-overlay');
+            resetButtons();
+        }
+
+        // 동결 상태 해제
+        function hideFrozenState() {
+            document.getElementById('frozenAlert').classList.add('hidden');
+            document.getElementById('quizCard').classList.remove('frozen-overlay');
+            document.getElementById('controlPanel').classList.remove('frozen-overlay');
+        }
 
         // 탭 전환
         window.switchTab = function(tab) {
@@ -524,21 +534,30 @@
             const users = [];
             
             snapshot.forEach((doc) => {
-                users.push({ id: doc.id, ...doc.data() });
+                const userData = doc.data();
+                users.push({ id: doc.id, ...userData });
             });
+
+            if (users.length === 0) {
+                rankingList.innerHTML = '<div class="text-center text-gray-500 py-8" translate="no">참가자가 없습니다.</div>';
+                return;
+            }
 
             let html = '';
             users.forEach((user, index) => {
                 const isCurrentUser = user.id === currentUser?.id;
                 const rankClass = index < 3 ? 'bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-200' : 'bg-white border-gray-200';
                 const textClass = isCurrentUser ? 'font-bold text-blue-600' : 'text-gray-800';
+                const statusIcon = user.isFrozen ? '🚫' : (user.isOnline ? '🟢' : '⚪');
                 
                 html += `
                     <div class="flex items-center justify-between p-4 rounded-xl border ${rankClass}">
                         <div class="flex items-center space-x-4">
                             <div class="text-2xl font-bold ${textClass}">${index + 1}</div>
                             <div>
-                                <div class="${textClass} font-medium">${user.name}</div>
+                                <div class="${textClass} font-medium flex items-center">
+                                    ${user.name} ${statusIcon}
+                                </div>
                                 <div class="text-sm text-gray-500">${user.position}</div>
                             </div>
                         </div>
@@ -550,261 +569,31 @@
             rankingList.innerHTML = html;
         }
 
-        // 관리자 - 문제 시작
-        window.startQuestion = async function() {
-            const number = document.getElementById('questionNumber').value;
-            const title = document.getElementById('questionTitle').value;
-            const correctAnswer = document.getElementById('correctAnswer').value;
-            const isBonus = document.getElementById('isBonus').checked;
-
-            if (!number || !title) {
-                alert('문제 번호와 제목을 입력해주세요.');
-                return;
-            }
-
-            try {
-                // 이전 답변들 삭제
-                const answersSnapshot = await collection(db, 'answers');
-                // 실제로는 batch delete를 사용해야 하지만 여기서는 간단히 처리
-
-                // 새 문제 시작
-                await setDoc(doc(db, 'system', 'currentQuestion'), {
-                    number: parseInt(number),
-                    title: title,
-                    correctAnswer: correctAnswer,
-                    isBonus: isBonus,
-                    status: 'active',
-                    startTime: new Date().toISOString()
-                });
-
-                alert('문제가 시작되었습니다!');
-            } catch (error) {
-                console.error('문제 시작 오류:', error);
-                alert('문제 시작 중 오류가 발생했습니다.');
-            }
-        };
-
-        // 관리자 - 문제 종료
-        window.endQuestion = async function() {
-            if (!currentQuestion) {
-                alert('진행 중인 문제가 없습니다.');
-                return;
-            }
-
-            try {
-                await updateDoc(doc(db, 'system', 'currentQuestion'), {
-                    status: 'ended',
-                    endTime: new Date().toISOString()
-                });
-
-                alert('문제가 종료되었습니다!');
-            } catch (error) {
-                console.error('문제 종료 오류:', error);
-                alert('문제 종료 중 오류가 발생했습니다.');
-            }
-        };
-
-        // 관리자 - 결과 공개 및 점수 업데이트
-        window.showResults = async function() {
-            if (!currentQuestion || currentQuestion.status !== 'ended') {
-                alert('종료된 문제가 없습니다.');
-                return;
-            }
-
-            try {
-                // 모든 답변 가져오기
-                const answersSnapshot = await getDocs(collection(db, 'answers'));
-                const pointsToAdd = currentQuestion.isBonus ? 2 : 1;
-
-                // 정답자들의 점수 업데이트
-                const batch = writeBatch(db);
-                
-                answersSnapshot.forEach((doc) => {
-                    const answer = doc.data();
-                    if (answer.answer === currentQuestion.correctAnswer) {
-                        const userRef = doc(db, 'users', answer.userId);
-                        batch.update(userRef, {
-                            score: increment(pointsToAdd)
-                        });
-                    }
-                });
-
-                await batch.commit();
-                alert('점수가 업데이트되었습니다!');
-            } catch (error) {
-                console.error('결과 공개 오류:', error);
-                alert('결과 공개 중 오류가 발생했습니다.');
-            }
-        };
-
-        // 실시간 현황 업데이트
-        function updateLiveStats(snapshot) {
-            if (!currentQuestion) {
-                document.getElementById('liveStats').innerHTML = '<div class="text-center text-gray-500" translate="no">문제가 시작되지 않았습니다</div>';
-                return;
-            }
-
-            const answers = {};
-            let totalAnswers = 0;
-
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                if (data.questionNumber === currentQuestion.number) {
-                    if (!answers[data.answer]) {
-                        answers[data.answer] = [];
-                    }
-                    answers[data.answer].push(data.userName);
-                    totalAnswers++;
-                }
-            });
-
-            const oCount = answers['O'] ? answers['O'].length : 0;
-            const xCount = answers['X'] ? answers['X'].length : 0;
-
-            let html = `
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div class="bg-blue-100 p-4 rounded-xl text-center">
-                        <div class="text-2xl font-bold text-blue-600">O</div>
-                        <div class="text-xl font-bold">${oCount}명</div>
-                    </div>
-                    <div class="bg-red-100 p-4 rounded-xl text-center">
-                        <div class="text-2xl font-bold text-red-600">X</div>
-                        <div class="text-xl font-bold">${xCount}명</div>
-                    </div>
-                </div>
-                <div class="text-center text-gray-600 mb-4" translate="no">
-                    총 ${totalAnswers}명 참여
-                </div>
-            `;
-
-            // O 선택자 목록
-            if (answers['O']) {
-                html += `
-                    <div class="mb-3">
-                        <div class="font-medium text-blue-600 mb-2" translate="no">O 선택자:</div>
-                        <div class="text-sm text-gray-600">${answers['O'].join(', ')}</div>
-                    </div>
-                `;
-            }
-
-            // X 선택자 목록
-            if (answers['X']) {
-                html += `
-                    <div>
-                        <div class="font-medium text-red-600 mb-2" translate="no">X 선택자:</div>
-                        <div class="text-sm text-gray-600">${answers['X'].join(', ')}</div>
-                    </div>
-                `;
-            }
-
-            document.getElementById('liveStats').innerHTML = html;
-        }
-
-        // 사용자 관리 업데이트
-        function updateUserManagement(snapshot) {
-            let html = '';
-            
-            snapshot.forEach((doc) => {
-                const user = { id: doc.id, ...doc.data() };
-                const statusClass = user.isFrozen ? 'bg-red-100 border-red-200' : 'bg-green-100 border-green-200';
-                const statusText = user.isFrozen ? '동결됨' : '활성';
-                
-                html += `
-                    <div class="flex items-center justify-between p-3 rounded-lg border ${statusClass}">
-                        <div>
-                            <div class="font-medium">${user.name} (${user.position})</div>
-                            <div class="text-sm text-gray-500">점수: ${user.score || 0}점 | 상태: ${statusText}</div>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button onclick="adjustUserScore('${user.id}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm" translate="no">
-                                점수조정
-                            </button>
-                            <button onclick="toggleUserFreeze('${user.id}')" class="px-3 py-1 ${user.isFrozen ? 'bg-green-500' : 'bg-red-500'} text-white rounded text-sm" translate="no">
-                                ${user.isFrozen ? '해제' : '동결'}
-                            </button>
-                            <button onclick="resetUserScore('${user.id}')" class="px-3 py-1 bg-gray-500 text-white rounded text-sm" translate="no">
-                                리셋
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            document.getElementById('userManagement').innerHTML = html;
-        }
-
-        // 관리자 - 사용자 점수 조정
-        window.adjustUserScore = async function(userId) {
-            const newScore = prompt('새로운 점수를 입력하세요:');
-            if (newScore === null || newScore === '') return;
-            
-            const score = parseInt(newScore);
-            if (isNaN(score)) {
-                alert('올바른 숫자를 입력해주세요.');
-                return;
-            }
-
-            try {
-                await updateDoc(doc(db, 'users', userId), {
-                    score: score
-                });
-                alert('점수가 조정되었습니다.');
-            } catch (error) {
-                console.error('점수 조정 오류:', error);
-                alert('점수 조정 중 오류가 발생했습니다.');
-            }
-        };
-
-        // 관리자 - 사용자 동결/해제
-        window.toggleUserFreeze = async function(userId) {
-            try {
-                const userDoc = await getDoc(doc(db, 'users', userId));
-                const currentStatus = userDoc.data().isFrozen || false;
-                
-                await updateDoc(doc(db, 'users', userId), {
-                    isFrozen: !currentStatus
-                });
-                
-                alert(currentStatus ? '사용자가 해제되었습니다.' : '사용자가 동결되었습니다.');
-            } catch (error) {
-                console.error('사용자 상태 변경 오류:', error);
-                alert('사용자 상태 변경 중 오류가 발생했습니다.');
-            }
-        };
-
-        // 관리자 - 사용자 점수 리셋
-        window.resetUserScore = async function(userId) {
-            if (!confirm('정말 이 사용자의 점수를 리셋하시겠습니까?')) {
-                return;
-            }
-
-            try {
-                await updateDoc(doc(db, 'users', userId), {
-                    score: 0
-                });
-                alert('점수가 리셋되었습니다.');
-            } catch (error) {
-                console.error('점수 리셋 오류:', error);
-                alert('점수 리셋 중 오류가 발생했습니다.');
-            }
-        };
-
         // 로그아웃
-        window.logout = function() {
+        window.logout = async function() {
+            if (currentUser) {
+                try {
+                    await updateDoc(doc(db, 'users', currentUser.id), {
+                        isOnline: false
+                    });
+                } catch (error) {
+                    console.error('로그아웃 업데이트 오류:', error);
+                }
+            }
+
             // 리스너 정리
             unsubscribeListeners.forEach(unsubscribe => unsubscribe());
             unsubscribeListeners = [];
             
             // 변수 초기화
             currentUser = null;
-            isAdmin = false;
+            gameState = null;
             currentQuestion = null;
             selectedAnswer = null;
             hasAnswered = false;
             
             // 화면 초기화
             document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('adminApp').classList.add('hidden');
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('newUserFields').classList.add('hidden');
             
@@ -814,11 +603,12 @@
             document.getElementById('userPosition').value = '';
         };
 
-        // 추가 Firebase 함수들을 전역으로 노출
-        import { getDocs, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-        window.getDocs = getDocs;
-        window.writeBatch = writeBatch;
-        window.increment = increment;
+        // 페이지 종료 시 온라인 상태 업데이트
+        window.addEventListener('beforeunload', () => {
+            if (currentUser) {
+                navigator.sendBeacon('/api/offline', JSON.stringify({userId: currentUser.id}));
+            }
+        });
     </script>
 </body>
 </html>
