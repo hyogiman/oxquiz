@@ -79,6 +79,16 @@
             background: rgba(239, 68, 68, 0.1);
             border: 2px solid #ef4444;
         }
+
+        .btn-selected {
+            animation: selectedPulse 1s ease-in-out;
+        }
+        
+        @keyframes selectedPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -300,12 +310,22 @@
         function setupListeners() {
             console.log('리스너 설정 시작');
             
-            // 현재 문제 리스너 (가장 중요)
+            // 현재 문제 리스너
             const questionListener = onSnapshot(doc(db, 'system', 'currentQuestion'), (doc) => {
                 console.log('문제 리스너 트리거:', doc.exists());
                 if (doc.exists()) {
-                    currentQuestion = doc.data();
+                    const newQuestion = doc.data();
+                    const isNewQuestion = !currentQuestion || currentQuestion.id !== newQuestion.id;
+                    
+                    currentQuestion = newQuestion;
                     console.log('현재 문제:', currentQuestion);
+                    
+                    // 새 문제가 시작되면 답변 상태 초기화
+                    if (isNewQuestion && currentQuestion.status === 'active') {
+                        hasAnswered = false;
+                        selectedAnswer = null;
+                    }
+                    
                     updateQuizDisplay();
                 } else {
                     currentQuestion = null;
@@ -368,26 +388,31 @@
             const display = document.getElementById('quizDisplay');
             const status = document.getElementById('quizStatus');
 
-            if (currentQuestion.status === 'active' && !hasAnswered && !currentUser.isFrozen) {
-                // 문제 활성 상태 - 답변 가능
+            if (currentQuestion.status === 'active') {
+                // 문제 활성 상태
                 const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2" translate="no">⭐ 보너스 문제 (2배 점수)</div>' : '';
                 display.innerHTML = `
                     <div class="text-xl text-gray-600 mb-4" translate="no">${currentQuestion.title}</div>
                     ${bonusText}
                 `;
-                status.textContent = 'O 또는 X를 선택하세요';
-                enableButtons();
-            } else if (currentQuestion.status === 'active' && hasAnswered) {
-                // 답변 완료 상태
-                const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
-                display.innerHTML = `
-                    <div class="text-center w-full">
-                        <div class="ox-display ${color}">${selectedAnswer}</div>
-                        <div class="text-lg text-gray-500 mt-4 loading" translate="no">결과를 기다리는 중...</div>
-                    </div>
-                `;
-                status.textContent = '답변을 제출했습니다. 결과를 기다려주세요...';
-                disableButtons();
+                
+                if (currentUser.isFrozen) {
+                    status.textContent = '계정이 동결되어 참여할 수 없습니다';
+                    resetButtons();
+                } else if (hasAnswered) {
+                    const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
+                    display.innerHTML += `
+                        <div class="text-center w-full mt-6">
+                            <div class="ox-display ${color}">${selectedAnswer}</div>
+                            <div class="text-sm text-gray-500 mt-2 loading" translate="no">선택: ${selectedAnswer}</div>
+                        </div>
+                    `;
+                    status.textContent = `${selectedAnswer}를 선택했습니다. 다시 선택하려면 버튼을 눌러주세요.`;
+                    enableButtons(); // 답변 변경 가능하도록
+                } else {
+                    status.textContent = 'O 또는 X를 선택하세요';
+                    enableButtons();
+                }
             } else if (currentQuestion.status === 'ended') {
                 // 문제 종료 상태
                 showQuestionResult();
@@ -406,11 +431,14 @@
                 const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
                 const resultText = isCorrect ? '✓ 정답입니다!' : '✗ 오답입니다.';
                 const resultColor = isCorrect ? 'text-green-500' : 'text-red-500';
+                const points = currentQuestion.isBonus ? 2 : 1;
+                const scoreText = isCorrect ? `+${points}점` : '+0점';
                 
                 display.innerHTML = `
                     <div class="text-center">
                         <div class="${resultColor} text-3xl font-bold mb-4">${resultText}</div>
                         <div class="text-xl text-gray-600 mb-2" translate="no">정답: ${currentQuestion.correctAnswer}</div>
+                        <div class="text-lg ${isCorrect ? 'text-green-600' : 'text-red-600'} font-bold mb-2">${scoreText}</div>
                         <div class="text-lg text-gray-500" translate="no">다음 문제를 기다려주세요...</div>
                     </div>
                 `;
@@ -420,6 +448,7 @@
                     <div class="text-center">
                         <div class="text-gray-500 text-2xl font-bold mb-4">시간 초과</div>
                         <div class="text-xl text-gray-600 mb-2" translate="no">정답: ${currentQuestion.correctAnswer}</div>
+                        <div class="text-lg text-red-600 font-bold mb-2">+0점</div>
                         <div class="text-lg text-gray-500" translate="no">다음 문제를 기다려주세요...</div>
                     </div>
                 `;
@@ -435,9 +464,9 @@
             }, 2000);
         }
 
-        // 답변 선택
+        // 답변 선택 - 실시간 변경 가능
         window.selectAnswer = async function(answer) {
-            if (!currentQuestion || currentQuestion.status !== 'active' || hasAnswered || currentUser.isFrozen) {
+            if (!currentQuestion || currentQuestion.status !== 'active' || currentUser.isFrozen) {
                 return;
             }
 
@@ -446,10 +475,15 @@
 
             console.log('답변 선택:', answer);
 
+            // 버튼 애니메이션
+            const selectedBtn = document.getElementById(`btn${answer}`);
+            selectedBtn.classList.add('btn-selected');
+            setTimeout(() => selectedBtn.classList.remove('btn-selected'), 1000);
+
             // UI 즉시 업데이트
             updateQuizDisplay();
 
-            // Firestore에 답변 저장
+            // Firestore에 답변 저장 (덮어쓰기)
             try {
                 await setDoc(doc(db, 'answers', `${currentQuestion.id}_${currentUser.id}`), {
                     userId: currentUser.id,
