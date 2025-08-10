@@ -107,6 +107,7 @@
                         <select id="correctAnswer" class="w-full px-3 py-2 border rounded-lg mb-3">
                             <option value="O">O</option>
                             <option value="X">X</option>
+                            <input type="url" id="questionImage" class="w-full px-3 py-2 border rounded-lg mb-3" placeholder="이미지 URL (선택사항)">
                         </select>
                         <label class="flex items-center mb-3">
                             <input type="checkbox" id="isBonus" class="mr-2">
@@ -136,7 +137,10 @@
                     
                     <!-- 사용자 관리 -->
                     <div class="card rounded-3xl p-6">
-                        <h2 class="text-xl font-bold mb-4">사용자 관리</h2>
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold">사용자 관리</h2>
+                            <button onclick="toggleRankingView()" id="btnRankingToggle" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">랭킹보기</button>
+                        </div>
                         <div id="userList" class="space-y-2 max-h-64 overflow-y-auto">
                             <div class="text-center text-gray-500 py-8">사용자를 불러오는 중...</div>
                         </div>
@@ -175,6 +179,7 @@
         async function init() {
             setupListeners();
             await loadQuestions();
+            document.getElementById('questionSelect').addEventListener('change', updateUI);
         }
 
         // 리스너 설정
@@ -191,6 +196,7 @@
         }
 
         // UI 업데이트
+        // 기존 updateUI() 함수를 아래로 교체
         function updateUI() {
             const statusDot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
@@ -198,28 +204,35 @@
             const btnEnd = document.getElementById('btnEnd');
             const btnNext = document.getElementById('btnNext');
             const info = document.getElementById('currentQuestionInfo');
-
+            const questionSelect = document.getElementById('questionSelect');
+        
             if (!currentQuestion) {
+                // 대기 상태
                 statusDot.className = 'w-3 h-3 rounded-full mr-2 status-waiting';
                 statusText.textContent = '대기 중';
-                btnStart.disabled = questions.length === 0;
+                btnStart.disabled = questions.length === 0 || !questionSelect.value;
                 btnEnd.disabled = true;
                 btnNext.disabled = true;
-                info.textContent = '선택된 문제가 없습니다';
+                questionSelect.disabled = false;
+                info.textContent = '문제를 선택하고 시작하세요';
             } else if (currentQuestion.status === 'active') {
+                // 진행 중
                 statusDot.className = 'w-3 h-3 rounded-full mr-2 status-active pulse';
                 statusText.textContent = '문제 진행 중';
                 btnStart.disabled = true;
                 btnEnd.disabled = false;
                 btnNext.disabled = true;
+                questionSelect.disabled = true;  // 문제 진행 중에는 변경 불가
                 const bonus = currentQuestion.isBonus ? ' ⭐' : '';
                 info.innerHTML = `<div class="bg-blue-50 p-3 rounded">${currentQuestion.title}<br>정답: ${currentQuestion.correctAnswer}${bonus}</div>`;
             } else if (currentQuestion.status === 'ended') {
+                // 종료됨
                 statusDot.className = 'w-3 h-3 rounded-full mr-2 status-ended';
                 statusText.textContent = '문제 종료됨';
                 btnStart.disabled = true;
                 btnEnd.disabled = true;
                 btnNext.disabled = false;
+                questionSelect.disabled = false;  // 다음 문제 선택 가능
                 info.innerHTML = `<div class="bg-green-50 p-3 rounded">문제 종료됨<br>정답: ${currentQuestion.correctAnswer}</div>`;
             }
         }
@@ -357,6 +370,7 @@
                 title: title,
                 correctAnswer: document.getElementById('correctAnswer').value,
                 isBonus: document.getElementById('isBonus').checked,
+                imageUrl: document.getElementById('questionImage').value.trim() || null,  // 추가
                 createdAt: serverTimestamp(),
                 order: questions.length
             };
@@ -458,51 +472,56 @@
                     <div class="font-bold">${currentQuestion.title}</div>
                     <div class="text-sm text-gray-600">총 ${total}명 참여 | 정답률: ${total ? Math.round(correct/total*100) : 0}%</div>
                 </div>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div class="bg-blue-100 p-4 rounded text-center">
-                        <div class="text-2xl font-bold text-blue-600">O</div>
-                        <div class="font-bold">${answers.O.length}명</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-100 p-4 rounded">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">O</div>
+                            <div class="font-bold mb-2">${answers.O.length}명</div>
+                        </div>
+                        <div class="text-xs text-gray-600 max-h-32 overflow-y-auto">
+                            ${answers.O.map(user => `<span class="inline-block bg-blue-200 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`).join('')}
+                        </div>
                     </div>
-                    <div class="bg-red-100 p-4 rounded text-center">
-                        <div class="text-2xl font-bold text-red-600">X</div>
-                        <div class="font-bold">${answers.X.length}명</div>
+                    <div class="bg-red-100 p-4 rounded">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-red-600">X</div>
+                            <div class="font-bold mb-2">${answers.X.length}명</div>
+                        </div>
+                        <div class="text-xs text-gray-600 max-h-32 overflow-y-auto">
+                            ${answers.X.map(user => `<span class="inline-block bg-red-200 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`).join('')}
+                        </div>
                     </div>
                 </div>
             `;
             
-            // O 선택자 목록
-            if (answers.O.length > 0) {
-                html += `
-                    <div class="mb-3">
-                        <div class="font-medium text-blue-600 mb-1 text-sm">O 선택자 (${answers.O.length}명):</div>
-                        <div class="text-xs text-gray-600">
-                `;
-                answers.O.forEach(user => {
-                    html += `<span class="inline-block bg-blue-100 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`;
-                });
-                html += '</div></div>';
-            }
-            
-            // X 선택자 목록
-            if (answers.X.length > 0) {
-                html += `
-                    <div>
-                        <div class="font-medium text-red-600 mb-1 text-sm">X 선택자 (${answers.X.length}명):</div>
-                        <div class="text-xs text-gray-600">
-                `;
-                answers.X.forEach(user => {
-                    html += `<span class="inline-block bg-red-100 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`;
-                });
-                html += '</div></div>';
-            }
-            
+           
             document.getElementById('liveStats').innerHTML = html;
         }
 
         // 사용자 관리 - 개선된 디자인
         function updateUsers(snapshot) {
             const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
+                if (showRankingMode) {
+                // 랭킹 모드
+                document.getElementById('userList').innerHTML = users.length ? users.map((user, index) => {
+                    const rankClass = index < 3 ? 'bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-200' : 'bg-white border-gray-200';
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                    return `
+                        <div class="flex items-center justify-between p-3 border rounded-lg ${rankClass}">
+                            <div class="flex items-center space-x-3">
+                                <div class="text-2xl font-bold text-gray-600">${index + 1}</div>
+                                <div class="text-xl">${medal}</div>
+                                <div>
+                                    <div class="font-medium">${user.name}</div>
+                                    <div class="text-xs text-gray-500">${user.position}</div>
+                                </div>
+                            </div>
+                            <div class="text-xl font-bold text-blue-600">${user.score || 0}점</div>
+                        </div>
+                    `;
+                }).join('') : '<div class="text-center text-gray-500 py-8">참가자가 없습니다</div>';
+            } else {
             document.getElementById('userList').innerHTML = users.length ? users.map(user => {
                 const status = user.isFrozen ? '🚫' : (user.isOnline ? '🟢' : '⚪');
                 return `
@@ -531,8 +550,8 @@
                     </div>
                 `;
             }).join('') : '<div class="text-center text-gray-500 py-8">참가자가 없습니다</div>';
+            }
         }
-
         // 사용자 관리 함수들
         window.adjustScore = async (id, name) => {
             const newScore = prompt(`${name}의 새 점수:`);
@@ -582,6 +601,24 @@
 
         // Enter 키 이벤트
         document.getElementById('adminPassword').addEventListener('keypress', e => e.key === 'Enter' && login());
+
+        // 랭킹 토글 함수 추가
+        let showRankingMode = false;
+
+        window.toggleRankingView = () => {
+            showRankingMode = !showRankingMode;
+            const btn = document.getElementById('btnRankingToggle');
+            if (showRankingMode) {
+                btn.textContent = '관리모드';
+                btn.className = 'px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600';
+            } else {
+                btn.textContent = '랭킹보기';
+                btn.className = 'px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600';
+            }
+            // 현재 사용자 리스트 다시 렌더링
+            const currentSnapshot = /* 현재 users snapshot 저장 필요 */;
+            updateUsers(currentSnapshot);
+        };
     </script>
 </body>
 </html>
