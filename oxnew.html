@@ -433,12 +433,14 @@
                 const resultColor = isCorrect ? 'text-green-500' : 'text-red-500';
                 const points = currentQuestion.isBonus ? 2 : 1;
                 const scoreText = isCorrect ? `+${points}점` : '+0점';
+                const currentScore = currentUser.score || 0; // 현재 총 점수
                 
                 display.innerHTML = `
                     <div class="text-center">
                         <div class="${resultColor} text-3xl font-bold mb-4">${resultText}</div>
                         <div class="text-xl text-gray-600 mb-2" translate="no">정답: ${currentQuestion.correctAnswer}</div>
                         <div class="text-lg ${isCorrect ? 'text-green-600' : 'text-red-600'} font-bold mb-2">${scoreText}</div>
+                        <div class="text-sm text-gray-600 mb-2">총 점수: ${currentScore}점</div>
                         <div class="text-lg text-gray-500" translate="no">다음 문제를 기다려주세요...</div>
                     </div>
                 `;
