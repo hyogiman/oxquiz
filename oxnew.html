@@ -356,7 +356,7 @@
 
             // 랭킹 리스너
             const rankingListener = onSnapshot(
-                query(collection(db, 'users'), where('isActive', '==', true), orderBy('score', 'desc')), 
+                query(collection(db, 'users'), orderBy('score', 'desc')), 
                 (snapshot) => {
                     updateRanking(snapshot);
                 }
