@@ -15,11 +15,18 @@
         .status-ended { background: #ef4444; }
         .pulse { animation: pulse 2s infinite; }
         .btn-danger {
-    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-}
-.btn-danger:hover {
-    background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
-}
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+            transform: translateY(-1px);
+        }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         
     </style>
@@ -244,27 +251,51 @@
             document.getElementById('bonusToggle').checked = false;
         };
 
-        // 문제 종료
+        // 문제 종료 - 점수 계산 추가
         window.endQuestion = async () => {
             if (!currentQuestion) return;
-            await updateDoc(doc(db, 'system', 'currentQuestion'), { status: 'ended', endTime: serverTimestamp() });
+            
+            // 문제 상태를 종료로 변경
+            await updateDoc(doc(db, 'system', 'currentQuestion'), { 
+                status: 'ended', 
+                endTime: serverTimestamp() 
+            });
+            
+            // 점수 계산
             setTimeout(calculateScores, 1000);
         };
 
-        // 점수 계산
+        // 점수 계산 - 수정된 버전
         async function calculateScores() {
-            const answers = await getDocs(query(collection(db, 'answers'), where('questionId', '==', currentQuestion.id)));
-            const points = currentQuestion.isBonus ? 2 : 1;
-            const batch = writeBatch(db);
-            
-            answers.forEach(doc => {
-                const answer = doc.data();
-                if (answer.answer === currentQuestion.correctAnswer) {
-                    batch.update(doc(db, 'users', answer.userId), { score: increment(points) });
-                }
-            });
-            
-            await batch.commit();
+            try {
+                console.log('점수 계산 시작');
+                const answers = await getDocs(query(collection(db, 'answers'), where('questionId', '==', currentQuestion.id)));
+                const points = currentQuestion.isBonus ? 2 : 1;
+                const batch = writeBatch(db);
+                
+                let correctCount = 0;
+                let totalCount = 0;
+                
+                answers.forEach(doc => {
+                    const answer = doc.data();
+                    totalCount++;
+                    
+                    if (answer.answer === currentQuestion.correctAnswer) {
+                        correctCount++;
+                        // 정답자의 점수 증가
+                        const userRef = doc(db, 'users', answer.userId);
+                        batch.update(userRef, { 
+                            score: increment(points)
+                        });
+                        console.log(`${answer.userName}에게 ${points}점 추가`);
+                    }
+                });
+                
+                await batch.commit();
+                console.log(`점수 계산 완료: ${correctCount}/${totalCount}명 정답, ${points}점씩 지급`);
+            } catch (error) {
+                console.error('점수 계산 오류:', error);
+            }
         }
 
         // 다음 문제
@@ -380,91 +411,101 @@
             }
         };
 
-        // 실시간 현황
-function updateStats(snapshot) {
-    // 문제가 없거나 종료된 경우 바로 대기 상태 표시
-    if (!currentQuestion || currentQuestion.status !== 'active') {
-        document.getElementById('liveStats').innerHTML = '<div class="text-center text-gray-500 py-8">문제가 진행되지 않고 있습니다</div>';
-        return;
-    }
-    
-    const answers = { O: [], X: [] };
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        // 현재 활성 문제의 답변만 집계
-        if (data.questionId === currentQuestion.id) {
-            answers[data.answer].push({
-                name: data.userName,
-                position: data.userPosition
+        // 실시간 현황 - 실시간 업데이트 지원
+        function updateStats(snapshot) {
+            if (!currentQuestion || currentQuestion.status !== 'active') {
+                document.getElementById('liveStats').innerHTML = '<div class="text-center text-gray-500 py-8">문제가 진행되지 않고 있습니다</div>';
+                return;
+            }
+            
+            const answers = { O: [], X: [] };
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.questionId === currentQuestion.id) {
+                    answers[data.answer].push({
+                        name: data.userName,
+                        position: data.userPosition
+                    });
+                }
             });
+            
+            const total = answers.O.length + answers.X.length;
+            const correct = answers[currentQuestion.correctAnswer].length;
+            
+            let html = `
+                <div class="text-center mb-4">
+                    <div class="font-bold">${currentQuestion.title}</div>
+                    <div class="text-sm text-gray-600">총 ${total}명 참여 | 정답률: ${total ? Math.round(correct/total*100) : 0}%</div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-blue-100 p-4 rounded text-center">
+                        <div class="text-2xl font-bold text-blue-600">O</div>
+                        <div class="font-bold">${answers.O.length}명</div>
+                    </div>
+                    <div class="bg-red-100 p-4 rounded text-center">
+                        <div class="text-2xl font-bold text-red-600">X</div>
+                        <div class="font-bold">${answers.X.length}명</div>
+                    </div>
+                </div>
+            `;
+            
+            // O 선택자 목록
+            if (answers.O.length > 0) {
+                html += `
+                    <div class="mb-3">
+                        <div class="font-medium text-blue-600 mb-1 text-sm">O 선택자 (${answers.O.length}명):</div>
+                        <div class="text-xs text-gray-600">
+                `;
+                answers.O.forEach(user => {
+                    html += `<span class="inline-block bg-blue-100 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`;
+                });
+                html += '</div></div>';
+            }
+            
+            // X 선택자 목록
+            if (answers.X.length > 0) {
+                html += `
+                    <div>
+                        <div class="font-medium text-red-600 mb-1 text-sm">X 선택자 (${answers.X.length}명):</div>
+                        <div class="text-xs text-gray-600">
+                `;
+                answers.X.forEach(user => {
+                    html += `<span class="inline-block bg-red-100 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`;
+                });
+                html += '</div></div>';
+            }
+            
+            document.getElementById('liveStats').innerHTML = html;
         }
-    });
-    
-    const total = answers.O.length + answers.X.length;
-    const correct = answers[currentQuestion.correctAnswer].length;
-    
-    let html = `
-        <div class="text-center mb-4">
-            <div class="font-bold">${currentQuestion.title}</div>
-            <div class="text-sm text-gray-600">총 ${total}명 참여 | 정답률: ${total ? Math.round(correct/total*100) : 0}%</div>
-        </div>
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div class="bg-blue-100 p-4 rounded text-center">
-                <div class="text-2xl font-bold text-blue-600">O</div>
-                <div class="font-bold">${answers.O.length}명</div>
-            </div>
-            <div class="bg-red-100 p-4 rounded text-center">
-                <div class="text-2xl font-bold text-red-600">X</div>
-                <div class="font-bold">${answers.X.length}명</div>
-            </div>
-        </div>
-    `;
-    
-    // O 선택자 목록 (활성 상태일 때만 표시)
-    if (answers.O.length > 0) {
-        html += `
-            <div class="mb-3">
-                <div class="font-medium text-blue-600 mb-1 text-sm">O 선택자 (${answers.O.length}명):</div>
-                <div class="text-xs text-gray-600">
-        `;
-        answers.O.forEach(user => {
-            html += `<span class="inline-block bg-blue-100 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`;
-        });
-        html += '</div></div>';
-    }
-    
-    // X 선택자 목록 (활성 상태일 때만 표시)
-    if (answers.X.length > 0) {
-        html += `
-            <div>
-                <div class="font-medium text-red-600 mb-1 text-sm">X 선택자 (${answers.X.length}명):</div>
-                <div class="text-xs text-gray-600">
-        `;
-        answers.X.forEach(user => {
-            html += `<span class="inline-block bg-red-100 px-2 py-1 rounded mr-1 mb-1">${user.name}</span>`;
-        });
-        html += '</div></div>';
-    }
-    
-    document.getElementById('liveStats').innerHTML = html;
-}
 
-        // 사용자 관리
+        // 사용자 관리 - 개선된 디자인
         function updateUsers(snapshot) {
             const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             document.getElementById('userList').innerHTML = users.length ? users.map(user => {
                 const status = user.isFrozen ? '🚫' : (user.isOnline ? '🟢' : '⚪');
                 return `
-                    <div class="flex justify-between items-center p-3 border rounded-lg ${user.isFrozen ? 'bg-red-50' : 'bg-white'}">
-                        <div>
-                            <div class="font-medium text-sm">${user.name} ${status}</div>
-                            <div class="text-xs text-gray-500">${user.position} | ${user.score || 0}점</div>
+                    <div class="flex justify-between items-center p-3 border rounded-lg ${user.isFrozen ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'} transition-all hover:shadow-md">
+                        <div class="flex-1">
+                            <div class="font-medium text-sm flex items-center">
+                                ${user.name} 
+                                <span class="ml-2">${status}</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">${user.position} | ${user.score || 0}점</div>
                         </div>
-                        <div class="flex space-x-1">
-                            <button onclick="adjustScore('${user.id}', '${user.name}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">점수</button>
-                            <button onclick="toggleFreeze('${user.id}', '${user.name}', ${user.isFrozen || false})" class="px-2 py-1 ${user.isFrozen ? 'bg-green-500' : 'bg-red-500'} text-white rounded text-xs">${user.isFrozen ? '해제' : '동결'}</button>
-<button onclick="deleteUser('${user.id}', '${user.name}')" class="btn-danger">삭제</button>
+                        <div class="flex items-center space-x-2 ml-4">
+                            <button onclick="adjustScore('${user.id}', '${user.name}')" 
+                                    class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-xs font-medium transition-colors">
+                                점수
+                            </button>
+                            <button onclick="toggleFreeze('${user.id}', '${user.name}', ${user.isFrozen || false})" 
+                                    class="px-3 py-1.5 ${user.isFrozen ? 'bg-green-500 hover:bg-green-600' : 'bg-orange-500 hover:bg-orange-600'} text-white rounded-md text-xs font-medium transition-colors">
+                                ${user.isFrozen ? '해제' : '동결'}
+                            </button>
+                            <button onclick="deleteUser('${user.id}', '${user.name}')" 
+                                    class="btn-danger">
+                                삭제
+                            </button>
                         </div>
                     </div>
                 `;
@@ -484,29 +525,30 @@ function updateStats(snapshot) {
                 await updateDoc(doc(db, 'users', id), { isFrozen: !frozen });
             }
         };
+
         window.deleteUser = async (id, name) => {
-    if (!confirm(`정말 ${name} 사용자를 완전히 삭제하시겠습니까?\n삭제된 사용자는 복구할 수 없습니다.`)) {
-        return;
-    }
-    
-    try {
-        // 사용자 문서 삭제
-        await deleteDoc(doc(db, 'users', id));
-        
-        // 해당 사용자의 모든 답변도 삭제
-        const userAnswers = await getDocs(query(collection(db, 'answers'), where('userId', '==', id)));
-        const batch = writeBatch(db);
-        userAnswers.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-        
-        alert(`${name} 사용자가 삭제되었습니다.`);
-    } catch (error) {
-        console.error('사용자 삭제 오류:', error);
-        alert('사용자 삭제 중 오류가 발생했습니다.');
-    }
-};
+            if (!confirm(`정말 ${name} 사용자를 완전히 삭제하시겠습니까?\n삭제된 사용자는 복구할 수 없습니다.`)) {
+                return;
+            }
+            
+            try {
+                // 사용자 문서 삭제
+                await deleteDoc(doc(db, 'users', id));
+                
+                // 해당 사용자의 모든 답변도 삭제
+                const userAnswers = await getDocs(query(collection(db, 'answers'), where('userId', '==', id)));
+                const batch = writeBatch(db);
+                userAnswers.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                
+                alert(`${name} 사용자가 삭제되었습니다.`);
+            } catch (error) {
+                console.error('사용자 삭제 오류:', error);
+                alert('사용자 삭제 중 오류가 발생했습니다.');
+            }
+        };
 
         // 로그아웃
         window.logout = () => {
