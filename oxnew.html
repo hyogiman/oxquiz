@@ -388,10 +388,15 @@
             const status = document.getElementById('quizStatus');
 
             if (currentQuestion.status === 'active') {
+                switchTab('quiz');
                 // 문제 활성 상태
-                const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2" translate="no">⭐ 보너스 문제 (2배 점수)</div>' : '';
+                const imageHtml = currentQuestion.imageUrl ? 
+                    `<img src="${currentQuestion.imageUrl}" alt="문제 이미지" class="max-w-full h-auto max-h-64 mx-auto mb-4 rounded-lg">` : '';
+                const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2">⭐ 보너스 문제 (2배 점수)</div>' : '';
+                
                 display.innerHTML = `
-                    <div class="text-xl text-gray-600 mb-4" translate="no">${currentQuestion.title}</div>
+                    ${imageHtml}
+                    <div class="text-xl text-gray-600 mb-4">${currentQuestion.title}</div>
                     ${bonusText}
                 `;
                 
