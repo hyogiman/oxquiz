@@ -251,48 +251,70 @@
             document.getElementById('bonusToggle').checked = false;
         };
 
-        // 문제 종료 - 점수 계산 추가
+        // 수정된 코드
         window.endQuestion = async () => {
             if (!currentQuestion) return;
             
-            // 문제 상태를 종료로 변경
+            console.log('문제 종료 시작');
+            
+            // 먼저 점수 계산
+            await calculateScores();
+            
+            // 그 다음 문제 상태를 종료로 변경
             await updateDoc(doc(db, 'system', 'currentQuestion'), { 
                 status: 'ended', 
                 endTime: serverTimestamp() 
             });
             
-            // 점수 계산
-            setTimeout(calculateScores, 1000);
+            console.log('문제 종료 완료');
         };
 
-        // 점수 계산 - 수정된 버전
+        // 수정된 코드
         async function calculateScores() {
+            if (!currentQuestion) {
+                console.log('현재 문제가 없습니다');
+                return;
+            }
+            
             try {
-                console.log('점수 계산 시작');
-                const answers = await getDocs(query(collection(db, 'answers'), where('questionId', '==', currentQuestion.id)));
+                console.log('점수 계산 시작 - 문제 ID:', currentQuestion.id);
+                console.log('정답:', currentQuestion.correctAnswer);
+                
+                const answers = await getDocs(collection(db, 'answers'));
                 const points = currentQuestion.isBonus ? 2 : 1;
-                const batch = writeBatch(db);
                 
                 let correctCount = 0;
                 let totalCount = 0;
                 
+                // batch 대신 개별 업데이트로 변경
+                const updatePromises = [];
+                
                 answers.forEach(doc => {
                     const answer = doc.data();
-                    totalCount++;
+                    console.log('답변 확인:', answer);
                     
-                    if (answer.answer === currentQuestion.correctAnswer) {
-                        correctCount++;
-                        // 정답자의 점수 증가
-                        const userRef = doc(db, 'users', answer.userId);
-                        batch.update(userRef, { 
-                            score: increment(points)
-                        });
-                        console.log(`${answer.userName}에게 ${points}점 추가`);
+                    // 현재 문제의 답변만 처리
+                    if (answer.questionId === currentQuestion.id) {
+                        totalCount++;
+                        console.log(`${answer.userName}의 답변: ${answer.answer}`);
+                        
+                        if (answer.answer === currentQuestion.correctAnswer) {
+                            correctCount++;
+                            console.log(`${answer.userName} 정답! ${points}점 추가`);
+                            
+                            // 개별 업데이트로 변경
+                            const userRef = doc(db, 'users', answer.userId);
+                            updatePromises.push(updateDoc(userRef, { 
+                                score: increment(points)
+                            }));
+                        }
                     }
                 });
                 
-                await batch.commit();
+                // 모든 업데이트 실행
+                await Promise.all(updatePromises);
                 console.log(`점수 계산 완료: ${correctCount}/${totalCount}명 정답, ${points}점씩 지급`);
+                
             } catch (error) {
                 console.error('점수 계산 오류:', error);
             }
