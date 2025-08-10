@@ -289,11 +289,10 @@
                 // batch 대신 개별 업데이트로 변경
                 const updatePromises = [];
                 
-                answers.forEach(doc => {
-                    const answer = doc.data();
+                answers.forEach(answerDoc => {  // 파라미터 이름 변경
+                    const answer = answerDoc.data();
                     console.log('답변 확인:', answer);
                     
-                    // 현재 문제의 답변만 처리
                     if (answer.questionId === currentQuestion.id) {
                         totalCount++;
                         console.log(`${answer.userName}의 답변: ${answer.answer}`);
@@ -302,7 +301,7 @@
                             correctCount++;
                             console.log(`${answer.userName} 정답! ${points}점 추가`);
                             
-                            // 개별 업데이트로 변경
+                            // doc 함수를 올바르게 사용
                             const userRef = doc(db, 'users', answer.userId);
                             updatePromises.push(updateDoc(userRef, { 
                                 score: increment(points)
