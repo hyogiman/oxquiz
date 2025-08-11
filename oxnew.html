@@ -376,60 +376,65 @@
         }
 
         // 퀴즈 화면 업데이트
-        function updateQuizDisplay() {
-            if (!currentQuestion) {
-                showWaitingState();
-                return;
-            }
-
-            console.log('퀴즈 화면 업데이트:', currentQuestion.status);
-            
-            const display = document.getElementById('quizDisplay');
-            const status = document.getElementById('quizStatus');
-
-            if (currentQuestion.status === 'active') {
-                switchTab('quiz');
-                // 문제 활성 상태
-                const imageHtml = currentQuestion.imageUrl ? 
-                    `<img src="${currentQuestion.imageUrl}" alt="문제 이미지" class="max-w-full h-auto max-h-64 mx-auto mb-4 rounded-lg">` : '';
-                const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2">⭐ 보너스 문제 (2배 점수)</div>' : '';
-                
-                display.innerHTML = `
-                    ${imageHtml}
-                    <div class="text-xl text-gray-600 mb-4">${currentQuestion.title}</div>
-                    ${bonusText}
-                `;
-                
-                if (currentUser.isFrozen) {
-                    status.textContent = '계정이 동결되어 참여할 수 없습니다';
-                    resetButtons();
-                } else if (hasAnswered) {
-                    const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
-                    display.innerHTML += `
-                        <div class="text-center w-full mt-6">
-                            <div class="ox-display ${color}">${selectedAnswer}</div>
-                            <div class="text-sm text-gray-500 mt-2 loading" translate="no">선택: ${selectedAnswer}</div>
-                        </div>
-                    `;
-                    status.textContent = `${selectedAnswer}를 선택했습니다. 다시 선택하려면 버튼을 눌러주세요.`;
-                    enableButtons(); // 답변 변경 가능하도록
-                } else {
-                    status.textContent = 'O 또는 X를 선택하세요';
-                    enableButtons();
+            function updateQuizDisplay() {
+                if (!currentQuestion) {
+                    showWaitingState();
+                    return;
                 }
-            } else if (currentQuestion.status === 'ended') {
-                // 문제 종료 상태
-                showQuestionResult();
-            } else {
-                // 기타 상태
-                showWaitingState();
+            
+                console.log('퀴즈 화면 업데이트:', currentQuestion.status);
+                
+                const display = document.getElementById('quizDisplay');
+                const status = document.getElementById('quizStatus');
+            
+                if (currentQuestion.status === 'active') {
+                    // 문제가 시작되면 자동으로 퀴즈 탭으로 이동
+                    switchTab('quiz');
+                    
+                    // 이미지 표시 추가
+                    const imageHtml = currentQuestion.imageData ? 
+                        `<img src="${currentQuestion.imageData}" alt="문제 이미지" class="max-w-full h-auto max-h-64 mx-auto mb-4 rounded-lg">` : '';
+                    const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2">⭐ 보너스 문제 (2배 점수)</div>' : '';
+                    
+                    display.innerHTML = `
+                        ${imageHtml}
+                        <div class="text-xl text-gray-600 mb-4">${currentQuestion.title}</div>
+                        ${bonusText}
+                    `;
+                    
+                    if (currentUser.isFrozen) {
+                        status.textContent = '계정이 동결되어 참여할 수 없습니다';
+                        resetButtons();
+                    } else if (hasAnswered) {
+                        const color = selectedAnswer === 'O' ? 'text-blue-500' : 'text-red-500';
+                        display.innerHTML += `
+                            <div class="text-center w-full mt-6">
+                                <div class="ox-display ${color}">${selectedAnswer}</div>
+                                <div class="text-sm text-gray-500 mt-2 loading" translate="no">선택: ${selectedAnswer}</div>
+                            </div>
+                        `;
+                        status.textContent = `${selectedAnswer}를 선택했습니다. 다시 선택하려면 버튼을 눌러주세요.`;
+                        enableButtons(); // 답변 변경 가능하도록
+                    } else {
+                        status.textContent = 'O 또는 X를 선택하세요';
+                        enableButtons();
+                    }
+                } else if (currentQuestion.status === 'ended') {
+                    // 문제 종료 상태
+                    showQuestionResult();
+                } else {
+                    // 기타 상태
+                    showWaitingState();
+                }
             }
-        }
 
         // 문제 결과 표시
         function showQuestionResult() {
             const display = document.getElementById('quizDisplay');
             const status = document.getElementById('quizStatus');
+                // 이미지 HTML 추가
+            const imageHtml = currentQuestion.imageData ? 
+                `<img src="${currentQuestion.imageData}" alt="문제 이미지" class="max-w-full h-auto max-h-32 mx-auto mb-4 rounded-lg opacity-50">` : '';
             
             if (hasAnswered) {
                 const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
@@ -451,6 +456,7 @@
                 status.textContent = '문제가 종료되었습니다';
             } else {
                 display.innerHTML = `
+                    ${imageHtml}                
                     <div class="text-center">
                         <div class="text-gray-500 text-2xl font-bold mb-4">시간 초과</div>
                         <div class="text-xl text-gray-600 mb-2" translate="no">정답: ${currentQuestion.correctAnswer}</div>
