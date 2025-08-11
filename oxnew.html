@@ -477,7 +477,7 @@
                      // 3. 오디오 알림 (선택사항)
                     try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+LyvmwhBjiN1/LNeC0ESz+T2fLFaCoFo/M8HdKTQAILYrTr66hVEw1QpuTsvmshCDaP2fLMdisGx/Y8INCUOwgJZ7zr55p'); 
-                        audio.volume = 0.3;
+                        audio.volume = 0.1;  // 볼륨 낮추기
                         audio.play().catch(() => {}); // 에러 무시
                     } catch (e) {
                         // 오디오 재생 실패 시 무시
@@ -486,11 +486,7 @@
                     // ⭐ 여기에 브라우저 알림 코드 추가 ⭐
                     if ('Notification' in window && Notification.permission === 'granted') {
                         new Notification('🚀 새 문제 시작!', {
-                            body: `${currentQuestion.title}${currentQuestion.isBonus ? ' (⭐ 보너스 문제)' : ''}`,
-                            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎯</text></svg>',
-                            vibrate: [200, 100, 200],
-                            requireInteraction: false,
-                            silent: false
+                            body: `${currentQuestion.title}${currentQuestion.isBonus ? ' (⭐ 보너스 문제)' : ''}`
                         });
                     }
                     
