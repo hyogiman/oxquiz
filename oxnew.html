@@ -463,26 +463,11 @@
                     // 문제가 시작되면 자동으로 퀴즈 탭으로 이동
                     switchTab('quiz');
                     // 진동 기능 (모바일/진동 지원 기기에서)
-                    /*
                     if ('vibrate' in navigator) {
                         navigator.vibrate([200, 100, 200]); // 200ms 진동, 100ms 멈춤, 200ms 진동
                     }
                     
-                    // 2. 시각적 효과
-                    const quizCard = document.getElementById('quizCard');
-                    quizCard.classList.add('quiz-start-pulse');
-                    setTimeout(() => {
-                        quizCard.classList.remove('quiz-start-pulse');
-                    }, 1000);
-                    
-                     // 3. 오디오 알림 (선택사항)
-                    try {
-                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+LyvmwhBjiN1/LNeC0ESz+T2fLFaCoFo/M8HdKTQAILYrTr66hVEw1QpuTsvmshCDaP2fLMdisGx/Y8INCUOwgJZ7zr55p'); 
-                        audio.volume = 0.1;  // 볼륨 낮추기
-                        audio.play().catch(() => {}); // 에러 무시
-                    } catch (e) {
-                        // 오디오 재생 실패 시 무시
-                    }
+                    /*
 
                     // ⭐ 여기에 브라우저 알림 코드 추가 ⭐
                     if ('Notification' in window && Notification.permission === 'granted') {
