@@ -301,11 +301,36 @@
             document.getElementById('mainApp').classList.remove('hidden');
             document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.position})`;
             document.getElementById('userScore').textContent = currentUser.score || 0;
+
+            // 기존 문제 상태 확인 및 복구
+            checkExistingQuestion();
             
             setupListeners();
         }
-
-        // 리스너 설정
+        // 기존 문제 상태 확인 함수 추가
+        async function checkExistingQuestion() {
+            try {
+                const questionDoc = await getDoc(doc(db, 'system', 'currentQuestion'));
+                if (questionDoc.exists()) {
+                    currentQuestion = questionDoc.data();
+                    console.log('기존 문제 복구:', currentQuestion);
+                    
+                    // 기존 답변 확인
+                    const answerDoc = await getDoc(doc(db, 'answers', `${currentQuestion.id}_${currentUser.id}`));
+                    if (answerDoc.exists()) {
+                        const answerData = answerDoc.data();
+                        selectedAnswer = answerData.answer;
+                        hasAnswered = true;
+                        console.log('기존 답변 복구:', selectedAnswer);
+                    }
+                    
+                    updateQuizDisplay();
+                }
+            } catch (error) {
+                console.error('기존 상태 복구 오류:', error);
+            }
+        }
+                // 리스너 설정
         function setupListeners() {
             console.log('리스너 설정 시작');
             
@@ -333,6 +358,11 @@
                 }
             }, (error) => {
                 console.error('문제 리스너 오류:', error);
+                // 연결이 끊어졌을 때 재연결 시도
+                setTimeout(() => {
+                    console.log('리스너 재연결 시도...');
+                    setupListeners();
+                }, 3000);
             });
             unsubscribeListeners.push(questionListener);
 
