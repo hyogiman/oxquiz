@@ -89,6 +89,31 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .quiz-start-pulse {
+            animation: pulseGlow 1s ease-in-out;
+        }
+        
+        @keyframes pulseGlow {
+            0% { 
+                transform: scale(1);
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            }
+            50% { 
+                transform: scale(1.02);
+                box-shadow: 0 25px 35px -5px rgba(102, 126, 234, 0.3);
+            }
+            100% { 
+                transform: scale(1);
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            }
+        }
+        
     </style>
 </head>
 <body class="min-h-screen">
@@ -301,7 +326,12 @@
             document.getElementById('mainApp').classList.remove('hidden');
             document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.position})`;
             document.getElementById('userScore').textContent = currentUser.score || 0;
-
+            
+            // 알림 권한 요청
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+            
             // 기존 문제 상태 확인 및 복구
             checkExistingQuestion();
             
@@ -366,7 +396,7 @@
             });
             unsubscribeListeners.push(questionListener);
 
-            // 사용자 정보 리스너 (점수, 동결 상태 등)
+            // 사용자 정보 리스너 수정
             const userListener = onSnapshot(doc(db, 'users', currentUser.id), (doc) => {
                 if (doc.exists()) {
                     const userData = doc.data();
@@ -384,7 +414,14 @@
                             updateQuizDisplay();
                         }
                     }
+                } else {
+                    // 사용자 문서가 삭제된 경우 (관리자가 삭제함)
+                    console.log('사용자가 삭제되었습니다. 로그아웃 처리...');
+                    alert('관리자에 의해 계정이 삭제되었습니다.');
+                    logout();
                 }
+            }, (error) => {
+                console.error('사용자 리스너 오류:', error);
             });
             unsubscribeListeners.push(userListener);
 
@@ -425,7 +462,25 @@
                 if (currentQuestion.status === 'active') {
                     // 문제가 시작되면 자동으로 퀴즈 탭으로 이동
                     switchTab('quiz');
+                    // 진동 기능 (모바일/진동 지원 기기에서)
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate([200, 100, 200]); // 200ms 진동, 100ms 멈춤, 200ms 진동
+                    }
                     
+                    // 2. 시각적 효과
+                    const quizCard = document.getElementById('quizCard');
+                    quizCard.classList.add('quiz-start-pulse');
+                    setTimeout(() => {
+                        quizCard.classList.remove('quiz-start-pulse');
+                    }, 1000);
+                     // 3. 오디오 알림 (선택사항)
+                    try {
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+LyvmwhBjiN1/LNeC0ESz+T2fLFaCoFo/M8HdKTQAILYrTr66hVEw1QpuTsvmshCDaP2fLMdisGx/Y8INCUOwgJZ7zr55p'); 
+                        audio.volume = 0.3;
+                        audio.play().catch(() => {}); // 에러 무시
+                    } catch (e) {
+                        // 오디오 재생 실패 시 무시
+                    }
                     // 이미지 표시 추가
                     const imageHtml = currentQuestion.imageData ? 
                         `<img src="${currentQuestion.imageData}" alt="문제 이미지" class="max-w-full h-auto max-h-64 mx-auto mb-4 rounded-lg">` : '';
