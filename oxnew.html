@@ -370,6 +370,7 @@
             const userListener = onSnapshot(doc(db, 'users', currentUser.id), (doc) => {
                 if (doc.exists()) {
                     const userData = doc.data();
+                    const wasFrozen = currentUser.isFrozen;
                     currentUser = { ...currentUser, ...userData };
                     document.getElementById('userScore').textContent = userData.score || 0;
                     
@@ -378,6 +379,10 @@
                         showFrozenState();
                     } else {
                         hideFrozenState();
+                        // 동결이 해제된 경우 화면 다시 업데이트
+                        if (wasFrozen && !userData.isFrozen) {
+                            updateQuizDisplay();
+                        }
                     }
                 }
             });
@@ -583,6 +588,11 @@
             document.getElementById('frozenAlert').classList.add('hidden');
             document.getElementById('quizCard').classList.remove('frozen-overlay');
             document.getElementById('controlPanel').classList.remove('frozen-overlay');
+            
+            // 동결 해제 시 현재 문제 상태에 따라 버튼 활성화
+            if (currentQuestion && currentQuestion.status === 'active') {
+                enableButtons();
+            }
         }
 
         // 탭 전환
