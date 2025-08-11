@@ -463,6 +463,7 @@
                     // 문제가 시작되면 자동으로 퀴즈 탭으로 이동
                     switchTab('quiz');
                     // 진동 기능 (모바일/진동 지원 기기에서)
+                    /*
                     if ('vibrate' in navigator) {
                         navigator.vibrate([200, 100, 200]); // 200ms 진동, 100ms 멈춤, 200ms 진동
                     }
@@ -489,6 +490,7 @@
                             body: `${currentQuestion.title}${currentQuestion.isBonus ? ' (⭐ 보너스 문제)' : ''}`
                         });
                     }
+                    */
                     
                     // 이미지 표시 추가
                     const imageHtml = currentQuestion.imageData ? 
