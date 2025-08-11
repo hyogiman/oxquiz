@@ -368,15 +368,41 @@
 
         // 전체 리셋
         window.resetGame = async () => {
-            if (!confirm('정말 리셋하시겠습니까?')) return;
+            if (!confirm('정말 리셋하시겠습니까?\n모든 사용자의 점수와 답변 기록이 삭제됩니다.')) return;
             
-            const answers = await getDocs(collection(db, 'answers'));
-            const batch = writeBatch(db);
-            answers.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            
-            await deleteDoc(doc(db, 'system', 'currentQuestion'));
-            document.getElementById('questionSelect').value = '';
+            try {
+                console.log('전체 리셋 시작...');
+                
+                // 1. 모든 답변 삭제
+                const answers = await getDocs(collection(db, 'answers'));
+                const batch1 = writeBatch(db);
+                answers.forEach(doc => batch1.delete(doc.ref));
+                await batch1.commit();
+                console.log('답변 기록 삭제 완료');
+                
+                // 2. 모든 사용자 점수 리셋
+                const users = await getDocs(collection(db, 'users'));
+                const batch2 = writeBatch(db);
+                users.forEach(doc => {
+                    batch2.update(doc.ref, { score: 0 });
+                });
+                await batch2.commit();
+                console.log('사용자 점수 리셋 완료');
+                
+                // 3. 현재 문제 삭제
+                await deleteDoc(doc(db, 'system', 'currentQuestion'));
+                console.log('현재 문제 삭제 완료');
+                
+                // 4. UI 초기화
+                document.getElementById('questionSelect').value = '';
+                
+                alert('리셋이 완료되었습니다.');
+                console.log('전체 리셋 완료');
+                
+            } catch (error) {
+                console.error('리셋 오류:', error);
+                alert('리셋 중 오류가 발생했습니다.');
+            }
         };
 
         // 문제 관리
