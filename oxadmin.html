@@ -108,8 +108,11 @@
                             <option value="O">O</option>
                             <option value="X">X</option>
                         </select>
-                        <input type="url" id="questionImage" class="w-full px-3 py-2 border rounded-lg mb-3" placeholder="이미지 URL (선택사항)">
-
+                        <input type="file" id="questionImage" accept="image/*" class="w-full px-3 py-2 border rounded-lg mb-3">
+                        <div id="imagePreview" class="mb-3 hidden">
+                            <img id="previewImg" class="max-w-full h-32 object-contain border rounded" alt="미리보기">
+                            <button type="button" onclick="clearImage()" class="mt-2 px-2 py-1 bg-red-500 text-white rounded text-xs">이미지 제거</button>
+                        </div>
                         <label class="flex items-center mb-3">
                             <input type="checkbox" id="isBonus" class="mr-2">
                             <span class="text-sm">기본 보너스 문제</span>
@@ -169,6 +172,8 @@
         // 랭킹 토글 함수 추가
         let showRankingMode = false;
 
+        let currentUsersSnapshot = null;  // 전역 변수로 추가
+        
         window.toggleRankingView = () => {
             showRankingMode = !showRankingMode;
             const btn = document.getElementById('btnRankingToggle');
@@ -179,9 +184,10 @@
                 btn.textContent = '랭킹보기';
                 btn.className = 'px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600';
             }
-            // 현재 사용자 리스트 다시 렌더링
-            const currentSnapshot = null ; /* 현재 users snapshot 저장 필요 */
-            updateUsers(currentSnapshot);
+            // 현재 스냅샷이 있을 때만 업데이트
+            if (currentUsersSnapshot) {
+                updateUsers(currentUsersSnapshot);
+            }
         };
 
         // 로그인
@@ -208,7 +214,10 @@
             });
             
             const answersListener = onSnapshot(collection(db, 'answers'), updateStats);
-            const usersListener = onSnapshot(query(collection(db, 'users'), orderBy('score', 'desc')), updateUsers);
+            const usersListener = onSnapshot(query(collection(db, 'users'), orderBy('score', 'desc')), (snapshot) => {
+                currentUsersSnapshot = snapshot;  // 스냅샷 저장
+                updateUsers(snapshot);
+            });
             
             listeners = [questionListener, answersListener, usersListener];
         }
@@ -269,12 +278,13 @@
             answers.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
             
-            // 새 문제 시작 (번호 제거)
+            // startQuestion 함수에서 이미지 데이터도 포함
             await setDoc(doc(db, 'system', 'currentQuestion'), {
                 id: `q_${Date.now()}`,
                 title: question.title,
                 correctAnswer: question.correctAnswer,
                 isBonus: isBonus,
+                imageData: question.imageData || null,  // 이미지 데이터 추가
                 status: 'active',
                 startTime: serverTimestamp()
             });
@@ -379,37 +389,81 @@
                 btn.className = 'px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600';
             } else cancelForm();
         };
-
-        window.saveQuestion = async () => {
-            const title = document.getElementById('questionTitle').value.trim();
-            if (!title) return alert('문제 제목을 입력하세요');
+            // 이미지 미리보기 기능
+            document.addEventListener('DOMContentLoaded', () => {
+                const imageInput = document.getElementById('questionImage');
+                if (imageInput) {
+                    imageInput.addEventListener('change', handleImageSelect);
+                }
+            });
             
-            const data = {
-                title: title,
-                correctAnswer: document.getElementById('correctAnswer').value,
-                isBonus: document.getElementById('isBonus').checked,
-                imageUrl: document.getElementById('questionImage').value.trim() || null,  // 추가
-                createdAt: serverTimestamp(),
-                order: questions.length
+            function handleImageSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('previewImg').src = e.target.result;
+                        document.getElementById('imagePreview').classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+            
+            window.clearImage = () => {
+                document.getElementById('questionImage').value = '';
+                document.getElementById('imagePreview').classList.add('hidden');
             };
             
-            const id = editingId || `q_${Date.now()}`;
-            await setDoc(doc(db, 'questions', id), data);
-            
-            cancelForm();
-            await loadQuestions();
-        };
+            // 이미지를 Base64로 변환하여 저장
+            async function getImageAsBase64() {
+                const fileInput = document.getElementById('questionImage');
+                const file = fileInput.files[0];
+                
+                if (!file) return null;
+                
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        resolve(e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        
+            window.saveQuestion = async () => {
+                const title = document.getElementById('questionTitle').value.trim();
+                if (!title) return alert('문제 제목을 입력하세요');
+                
+                // 이미지를 Base64로 변환
+                const imageData = await getImageAsBase64();
+                
+                const data = {
+                    title: title,
+                    correctAnswer: document.getElementById('correctAnswer').value,
+                    isBonus: document.getElementById('isBonus').checked,
+                    imageData: imageData,  // Base64 데이터로 저장
+                    createdAt: serverTimestamp(),
+                    order: questions.length
+                };
+                
+                const id = editingId || `q_${Date.now()}`;
+                await setDoc(doc(db, 'questions', id), data);
+                
+                cancelForm();
+                await loadQuestions();
+            };
 
-        window.cancelForm = () => {
-            document.getElementById('questionForm').classList.add('hidden');
-            document.getElementById('btnToggle').textContent = '+ 새 문제';
-            document.getElementById('btnToggle').className = 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600';
-            document.getElementById('questionTitle').value = '';
-            document.getElementById('correctAnswer').value = 'O';
-            document.getElementById('questionImage').value = '';  // 이 줄 추가
-            document.getElementById('isBonus').checked = false;
-            editingId = null;
-        };
+            window.cancelForm = () => {
+                document.getElementById('questionForm').classList.add('hidden');
+                document.getElementById('btnToggle').textContent = '+ 새 문제';
+                document.getElementById('btnToggle').className = 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600';
+                document.getElementById('questionTitle').value = '';
+                document.getElementById('correctAnswer').value = 'O';
+                document.getElementById('questionImage').value = '';
+                document.getElementById('imagePreview').classList.add('hidden');  // 미리보기 숨기기
+                document.getElementById('isBonus').checked = false;
+                editingId = null;
+            };
 
         // 문제 목록 로드
         async function loadQuestions() {
