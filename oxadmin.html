@@ -223,7 +223,7 @@
         }
 
         // UI 업데이트
-        // 기존 updateUI() 함수를 아래로 교체
+        // 기존 updateUI() 함수에서 버튼 비활성화 부분 수정
         function updateUI() {
             const statusDot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
@@ -238,8 +238,13 @@
                 statusDot.className = 'w-3 h-3 rounded-full mr-2 status-waiting';
                 statusText.textContent = '대기 중';
                 btnStart.disabled = questions.length === 0 || !questionSelect.value;
+                btnStart.className = btnStart.disabled ? 
+                    'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed' : 
+                    'w-full py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600';
                 btnEnd.disabled = true;
+                btnEnd.className = 'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed';
                 btnNext.disabled = true;
+                btnNext.className = 'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed';
                 questionSelect.disabled = false;
                 info.textContent = '문제를 선택하고 시작하세요';
             } else if (currentQuestion.status === 'active') {
@@ -247,8 +252,11 @@
                 statusDot.className = 'w-3 h-3 rounded-full mr-2 status-active pulse';
                 statusText.textContent = '문제 진행 중';
                 btnStart.disabled = true;
+                btnStart.className = 'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed';
                 btnEnd.disabled = false;
+                btnEnd.className = 'w-full py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600';
                 btnNext.disabled = true;
+                btnNext.className = 'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed';
                 questionSelect.disabled = true;  // 문제 진행 중에는 변경 불가
                 const bonus = currentQuestion.isBonus ? ' ⭐' : '';
                 info.innerHTML = `<div class="bg-blue-50 p-3 rounded">${currentQuestion.title}<br>정답: ${currentQuestion.correctAnswer}${bonus}</div>`;
@@ -257,8 +265,11 @@
                 statusDot.className = 'w-3 h-3 rounded-full mr-2 status-ended';
                 statusText.textContent = '문제 종료됨';
                 btnStart.disabled = true;
+                btnStart.className = 'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed';
                 btnEnd.disabled = true;
+                btnEnd.className = 'w-full py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-not-allowed';
                 btnNext.disabled = false;
+                btnNext.className = 'w-full py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600';
                 questionSelect.disabled = false;  // 다음 문제 선택 가능
                 info.innerHTML = `<div class="bg-green-50 p-3 rounded">문제 종료됨<br>정답: ${currentQuestion.correctAnswer}</div>`;
             }
