@@ -478,8 +478,8 @@
                     */
                     
                     // 이미지 표시 추가
-                    const imageHtml = currentQuestion.imageData ? 
-                        `<img src="${currentQuestion.imageData}" alt="문제 이미지" class="max-w-full h-auto max-h-64 mx-auto mb-4 rounded-lg">` : '';
+                    const imageHtml = currentQuestion.imageUrl ? 
+                        `<img src="${currentQuestion.imageUrl}" alt="문제 이미지" class="max-w-full h-auto max-h-64 mx-auto mb-4 rounded-lg">` : '';
                     const bonusText = currentQuestion.isBonus ? '<div class="text-lg text-orange-500 font-bold mt-2">⭐ 보너스 문제 (2배 점수)</div>' : '';
                     
                     display.innerHTML = `
@@ -519,8 +519,8 @@
             const display = document.getElementById('quizDisplay');
             const status = document.getElementById('quizStatus');
                 // 이미지 HTML 추가
-            const imageHtml = currentQuestion.imageData ? 
-                `<img src="${currentQuestion.imageData}" alt="문제 이미지" class="max-w-full h-auto max-h-32 mx-auto mb-4 rounded-lg opacity-50">` : '';
+            const imageHtml = currentQuestion.imageUrl ? 
+                `<img src="${currentQuestion.imageUrl}" alt="문제 이미지" class="max-w-full h-auto max-h-32 mx-auto mb-4 rounded-lg opacity-50">` : '';
             
             if (hasAnswered) {
                 const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
