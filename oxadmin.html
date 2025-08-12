@@ -483,44 +483,56 @@
                 }
             }
         
-                window.saveQuestion = async () => {
-                    const title = document.getElementById('questionTitle').value.trim();
-                    if (!title) return alert('문제 제목을 입력하세요');
+            window.saveQuestion = async () => {
+                const title = document.getElementById('questionTitle').value.trim();
+                if (!title) return alert('문제 제목을 입력하세요');
+                
+                // 업로드 중 표시
+                const saveBtn = document.querySelector('button[onclick="saveQuestion()"]');
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = '업로드 중...';
+                saveBtn.disabled = true;
+                
+                try {
+                    let imageUrl = null;
                     
-                    // 업로드 중 표시
-                    const saveBtn = document.querySelector('button[onclick="saveQuestion()"]');
-                    const originalText = saveBtn.textContent;
-                    saveBtn.textContent = '업로드 중...';
-                    saveBtn.disabled = true;
-                    
-                    try {
-                        // 이미지를 Storage에 업로드
-                        const imageUrl = await uploadImageToStorage();
-                        
-                        const data = {
-                            title: title,
-                            correctAnswer: document.getElementById('correctAnswer').value,
-                            isBonus: document.getElementById('isBonus').checked,
-                            imageUrl: imageUrl,  // Base64 대신 URL 저장
-                            createdAt: serverTimestamp(),
-                            order: questions.length
-                        };
-                        
-                        const id = editingId || `q_${Date.now()}`;
-                        await setDoc(doc(db, 'questions', id), data);
-                        
-                        cancelForm();
-                        await loadQuestions();
-                        
-                    } catch (error) {
-                        console.error('문제 저장 오류:', error);
-                        alert('문제 저장 중 오류가 발생했습니다.');
-                    } finally {
-                        // 버튼 복구
-                        saveBtn.textContent = originalText;
-                        saveBtn.disabled = false;
+                    // 편집 모드이면서 새 이미지가 선택되지 않은 경우
+                    if (editingId) {
+                        const existingDoc = await getDoc(doc(db, 'questions', editingId));
+                        const existingData = existingDoc.data();
+                        imageUrl = existingData.imageUrl; // 기존 이미지 URL 유지
                     }
-                };
+                    
+                    // 새 이미지가 선택된 경우에만 업로드
+                    const fileInput = document.getElementById('questionImage');
+                    if (fileInput.files[0]) {
+                        imageUrl = await uploadImageToStorage();
+                    }
+                    
+                    const data = {
+                        title: title,
+                        correctAnswer: document.getElementById('correctAnswer').value,
+                        isBonus: document.getElementById('isBonus').checked,
+                        imageUrl: imageUrl,
+                        createdAt: serverTimestamp(),
+                        order: questions.length
+                    };
+                    
+                    const id = editingId || `q_${Date.now()}`;
+                    await setDoc(doc(db, 'questions', id), data);
+                    
+                    cancelForm();
+                    await loadQuestions();
+                    
+                } catch (error) {
+                    console.error('문제 저장 오류:', error);
+                    alert('문제 저장 중 오류가 발생했습니다.');
+                } finally {
+                    // 버튼 복구
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                }
+            };
 
             window.cancelForm = () => {
                 document.getElementById('questionForm').classList.add('hidden');
@@ -529,7 +541,14 @@
                 document.getElementById('questionTitle').value = '';
                 document.getElementById('correctAnswer').value = 'O';
                 document.getElementById('questionImage').value = '';
-                document.getElementById('imagePreview').classList.add('hidden');  // 미리보기 숨기기
+                document.getElementById('imagePreview').classList.add('hidden');
+                
+                // 기존 이미지 정보 텍스트 제거
+                const existingImageInfo = document.getElementById('existingImageInfo');
+                if (existingImageInfo) {
+                    existingImageInfo.remove();
+                }
+                
                 document.getElementById('isBonus').checked = false;
                 editingId = null;
             };
@@ -575,8 +594,28 @@
             
             document.getElementById('questionTitle').value = data.title;
             document.getElementById('correctAnswer').value = data.correctAnswer;
-            document.getElementById('questionImage').value = data.imageUrl || '';  // 이 줄 추가
             document.getElementById('isBonus').checked = data.isBonus || false;
+            
+            // 파일 input은 초기화 (보안상 값을 설정할 수 없음)
+            document.getElementById('questionImage').value = '';
+            
+            // 기존 이미지가 있으면 미리보기 표시
+            if (data.imageUrl) {
+                document.getElementById('previewImg').src = data.imageUrl;
+                document.getElementById('imagePreview').classList.remove('hidden');
+                
+                // 기존 이미지 표시를 위한 텍스트 추가
+                const existingImageDiv = document.getElementById('existingImageInfo') || (() => {
+                    const div = document.createElement('div');
+                    div.id = 'existingImageInfo';
+                    div.className = 'text-sm text-blue-600 mb-2';
+                    document.getElementById('imagePreview').appendChild(div);
+                    return div;
+                })();
+                existingImageDiv.textContent = '기존 이미지 (새 이미지를 선택하면 교체됩니다)';
+            } else {
+                document.getElementById('imagePreview').classList.add('hidden');
+            }
             
             editingId = id;
             toggleForm();
