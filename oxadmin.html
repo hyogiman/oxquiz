@@ -157,6 +157,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, updateDoc, deleteDoc, getDocs, writeBatch, increment, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
         const app = initializeApp({
             apiKey: "AIzaSyA_SuKTn4jWyBL3lyk8CK6hPpttpR0MOMc",
@@ -167,6 +168,7 @@
             appId: "1:886372179569:web:8616d019f7b63a26e045d0"
         });
         const db = getFirestore(app);
+        const storage = getStorage(app);  // 이 줄 추가
 
         let currentQuestion = null, questions = [], listeners = [], editingId = null;
         // 랭킹 토글 함수 추가
@@ -295,7 +297,7 @@
                 title: question.title,
                 correctAnswer: question.correctAnswer,
                 isBonus: isBonus,
-                imageData: question.imageData || null,  // 이미지 데이터 추가
+                imageUrl: question.imageUrl || null,  // imageData → imageUrl로 변경
                 status: 'active',
                 startTime: serverTimestamp()
             });
@@ -451,44 +453,74 @@
                 document.getElementById('imagePreview').classList.add('hidden');
             };
             
-            // 이미지를 Base64로 변환하여 저장
-            async function getImageAsBase64() {
+            async function uploadImageToStorage() {
                 const fileInput = document.getElementById('questionImage');
                 const file = fileInput.files[0];
                 
                 if (!file) return null;
                 
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        resolve(e.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                });
+                try {
+                    console.log('이미지 업로드 시작:', file.name);
+                    
+                    // 파일명을 고유하게 만들기
+                    const timestamp = Date.now();
+                    const fileName = `question_${timestamp}_${file.name}`;
+                    const imageRef = ref(storage, `question-images/${fileName}`);
+                    
+                    // 업로드 진행
+                    const snapshot = await uploadBytes(imageRef, file);
+                    console.log('업로드 완료');
+                    
+                    // 다운로드 URL 가져오기
+                    const downloadURL = await getDownloadURL(snapshot.ref);
+                    console.log('다운로드 URL:', downloadURL);
+                    
+                    return downloadURL;
+                } catch (error) {
+                    console.error('이미지 업로드 오류:', error);
+                    alert('이미지 업로드 중 오류가 발생했습니다: ' + error.message);
+                    return null;
+                }
             }
         
-            window.saveQuestion = async () => {
-                const title = document.getElementById('questionTitle').value.trim();
-                if (!title) return alert('문제 제목을 입력하세요');
-                
-                // 이미지를 Base64로 변환
-                const imageData = await getImageAsBase64();
-                
-                const data = {
-                    title: title,
-                    correctAnswer: document.getElementById('correctAnswer').value,
-                    isBonus: document.getElementById('isBonus').checked,
-                    imageData: imageData,  // Base64 데이터로 저장
-                    createdAt: serverTimestamp(),
-                    order: questions.length
+                window.saveQuestion = async () => {
+                    const title = document.getElementById('questionTitle').value.trim();
+                    if (!title) return alert('문제 제목을 입력하세요');
+                    
+                    // 업로드 중 표시
+                    const saveBtn = document.querySelector('button[onclick="saveQuestion()"]');
+                    const originalText = saveBtn.textContent;
+                    saveBtn.textContent = '업로드 중...';
+                    saveBtn.disabled = true;
+                    
+                    try {
+                        // 이미지를 Storage에 업로드
+                        const imageUrl = await uploadImageToStorage();
+                        
+                        const data = {
+                            title: title,
+                            correctAnswer: document.getElementById('correctAnswer').value,
+                            isBonus: document.getElementById('isBonus').checked,
+                            imageUrl: imageUrl,  // Base64 대신 URL 저장
+                            createdAt: serverTimestamp(),
+                            order: questions.length
+                        };
+                        
+                        const id = editingId || `q_${Date.now()}`;
+                        await setDoc(doc(db, 'questions', id), data);
+                        
+                        cancelForm();
+                        await loadQuestions();
+                        
+                    } catch (error) {
+                        console.error('문제 저장 오류:', error);
+                        alert('문제 저장 중 오류가 발생했습니다.');
+                    } finally {
+                        // 버튼 복구
+                        saveBtn.textContent = originalText;
+                        saveBtn.disabled = false;
+                    }
                 };
-                
-                const id = editingId || `q_${Date.now()}`;
-                await setDoc(doc(db, 'questions', id), data);
-                
-                cancelForm();
-                await loadQuestions();
-            };
 
             window.cancelForm = () => {
                 document.getElementById('questionForm').classList.add('hidden');
